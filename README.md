@@ -1,6 +1,7 @@
 
 # Anisotropic Tensile Fracture in Metamorphic Rocks  
-Code & Data for Acharya & Elsworth
+### Code and data for analytical and numerical modelling of anisotropic tensile fracture  
+#### Acharya & Elsworth
 
 > **Note:** This is research code provided to support reproducibility of the published results.  
 > It is not a polished software package and may require minor adjustments for different systems.
