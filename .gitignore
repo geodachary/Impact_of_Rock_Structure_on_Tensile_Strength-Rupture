@@ -29,6 +29,6 @@ Thumbs.db
 .DS_Store
 **/.DS_Store
 
-# data files before peer review
+# data files before final processing and release
 *.tsv
 *.csv
