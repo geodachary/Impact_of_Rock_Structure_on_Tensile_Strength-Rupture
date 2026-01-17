@@ -28,3 +28,7 @@ Thumbs.db
 # macOS
 .DS_Store
 **/.DS_Store
+
+# data files before peer review
+*.tsv
+*.csv
