@@ -1,54 +1,352 @@
-# Anisotropic Tensile Fracture in Metamorphic Rocks  
+# Impact of Rock Anisotropy on Tensile Strength and Modes of Rupture
 
-### Code and data for analytical and numerical modelling of anisotropic tensile fracture  
-#### Acharya & Elsworth  
+Code and data supporting the study of anisotropic tensile fracture in foliated
+metamorphic rocks.
 
-> **Note:** This repository provides research code and data to support the reproducibility of results presented in the associated publication.  
-> The scripts reflect a research workflow and are not distributed as a general-purpose software package.
+**D. Acharya and D. Elsworth**
+Submitted to the *Journal of the Mechanics and Physics of Solids*
+
+> This repository provides research code and data supporting the reproducibility
+> of the results reported in the associated publication. It reflects a research
+> workflow and is not distributed as a general-purpose software package.
 
 ---
 
 ## 1. Overview
 
-This repository contains the numerical models, post-processing scripts, and data used in the study:
+The study combines angle-resolved Brazilian disc experiments with an
+anisotropy-aware numerical framework to examine how a planar rock fabric
+controls both the tensile strength of a rock and the mode in which it ruptures.
 
-> **Tensile and mixed-mode fracture in anisotropic metamorphic rocks:  
-> Experiments and anisotropy-aware numerical modelling**
+Two foliated Himalayan lithologies are analyzed, augen gneiss and psammitic
+schist, at seven fabric orientations each.
 
-The study integrates laboratory experiments and numerical modelling to investigate tensile and mixed-mode fracture in foliated metamorphic rocks. Specifically, it includes:
+The numerical framework combines:
 
-- Angle-resolved **Brazilian disc experiments** on augen gneiss and psammitic schist  
-- An **anisotropy-aware numerical framework** incorporating:
-  - Orthotropic elasticity  
-  - Directional tensile strength (tensile cap)  
-  - Mesoscale heterogeneity  
-  - Foliation spacing effects  
-- **Failure-mode classification** (tensile, shear, mixed-mode) and  
-  **strain-energy partitioning** under idealised Andersonian stress regimes  
+- orthotropic elasticity, through a Lekhnitskii stress solution on the disc;
+- a directional tensile strength, applied as a tensile cap;
+- mesoscale heterogeneity of the elastic and strength fields;
+- foliation spacing, which differs by an order of magnitude between the two
+  rocks and is carried as a property of the rock rather than as a fitted number;
+- a failure classifier that resolves the **mechanism** of failure (tensile or
+  shear) and its **structural locus** (weak plane or intact matrix) together,
+  rather than collapsing the two into a single label;
+- strain-energy partitioning across those mechanisms.
 
-The modelling framework is used to:
-1. Reproduce tensile strength as a function of loading angle  
-2. Compute stress, displacement, and strain-energy fields  
-3. Identify fracture initiation and propagation paths  
-4. Generate the figures and tables presented in the manuscript  
+The framework is used to reproduce tensile strength as a function of loading
+angle, to compute the stress, displacement and strain-energy fields, to identify
+where and in what mode fracture initiates, and to generate the reported figures
+and tables.
+
+Both lithologies are included here. They run the same code and differ only in
+the material parameters and fabric spacing bound to each, which is a property
+the test suite enforces rather than a claim made in prose.
+
+## 2. Lithologies and specimen numbering
+
+| Lithology | Specimens | Fabric angles `α_exp` | Weak-plane spacing |
+|---|---|---|---|
+| Augen gneiss | 1 to 7 | 0°, 15°, 30°, 45°, 60°, 75°, 90° | 10 mm |
+| Psammitic schist | 8 to 14 | 0°, 15°, 30°, 45°, 60°, 75°, 90° | 2 mm |
+
+Specimen identifiers are never shared between lithologies, and
+`tools.lithology` enforces this with an assertion the test suite exercises.
+The spacing and the phase-warp amplitude live on the `Lithology` object, so no
+analysis module carries either as a literal. They were previously repeated
+inline in every long notebook cell, which is how the two rocks drifted apart.
+
+`α_exp` is measured from the horizontal diameter: at 0° the foliation trace is
+perpendicular to the loading direction, and at 90° it is parallel to it.
+
+## 3. The four failure mechanisms
+
+| Class | Meaning |
+|---|---|
+| **WT** | tensile opening along the weak plane (foliation) |
+| **WS** | shear sliding along the weak plane |
+| **MT** | tensile cracking through the intact matrix |
+| **MS** | shear cracking through the intact matrix |
+
+Each point is assigned to the mechanism with the largest admissible utility
+ratio. Weak-plane utilities are admissible only where the modeled foliation
+activation weight exceeds a stated floor, so a matrix point cannot be labeled a
+weak-plane failure.
+
+**Mixed mode is a secondary descriptor, not a fifth class.** It flags points
+where the second-largest admissible utility lies within `η_mix` of the largest,
+and it never replaces the primary WT/WS/MT/MS assignment.
+
+## 4. Fracture traces
+
+Predicted traces are **heuristic diagnostic trajectories**, not solutions of a
+progressive crack-growth problem. The framework identifies where and in what
+mode fracture initiates; it does not simulate propagation, arrest or
+re-initiation.
+
+Observed and predicted traces are paired one to one by specimen, never by
+filename sorting:
+
+```
+crack_digitized_data/<lithology>_<angle>_sample_<N>.csv
+    ↔  outputs/fields/ddm_crack_sample_<N>.csv
+```
+
+for `N = 1` to `14`. Both are in meters in the same specimen frame: disc center
+at the origin, `+x` the horizontal diameter, `+y` the loading axis.
+
+A crack-path step is recorded as one of two kinds. An **energy-driven** step is
+chosen by maximizing `G − G_c` over admissible directions. Where no admissible
+direction clears `G_c`, the stepper follows the preferred-orientation field
+instead, and that step is **sub-critical by construction**. Roughly 62% of the
+path is of the second kind, so any statistic computed over all steps measures
+the mix of the two as much as it measures the crack. `tools.fracture_energy`
+reports both, and judges arrest on the energy-driven steps alone.
 
 ---
 
-## 2. Repository structure and workflow
+## 5. Repository structure
 
-The primary numerical and analytical workflow is implemented in the Jupyter notebook:
- 
-[Tensile_augen_gneiss.ipynb](https://github.com/geodachary/Impact_of_Rock_Structure_on_Tensile_Strength-Rupture/blob/main/Tensile_augen_gneiss.ipynb).
+```
+tools/                     the analysis package; every reusable function lives here
+  conventions.py             coordinate, angle and stress-sign conventions
+  lithology.py               per-lithology configuration and the 14-specimen pairing
+  output_dirs.py             the single authority for where output goes
+  traces.py                  trace loading, primary-segment rule, orientation fitting
+  failure_classification.py  WT/WS/MT/MS utilities and the secondary mixed flag
+  fracture_energy.py         along-path G/G_c, energy-driven vs sub-critical steps
+  ati_model.py               the two-parameter anisotropic tensile strength fit
+  plotting.py                shared publication style, seven-panel figure builders
+  export.py                  provenance-carrying table export
+  strain_partitioning.py     classifier-driven strain-energy partition
+  ddm/                       displacement-discontinuity toolkit shared by both rocks
+  analysis/                  one module per section of the analysis, shared by both
+  <mechanics modules>        stress, geometry, rotation, Airy solution, crack helpers
 
+scripts/reproduce_all.py               one-command reproduction of tables and figures
+scripts/extract_analysis_sections.py   the notebook to tools/analysis migration
+scripts/build_notebooks.py             regenerates the three notebooks
+scripts/smoke_sections.py              runs every section once, both lithologies
+scripts/make_*.py                      the individual figure and table generators
+tests/                                 unit, integration and regression tests
 
+Tensile_augen_gneiss.ipynb        specimens 1 to 7
+Tensile_psammitic_schist.ipynb    specimens 8 to 14
+Tensile_general_plots.ipynb       cross-lithology models and comparisons
+legacy_notebooks/pre_refactor/    the notebooks as they stood before the
+                                  tools/analysis migration; the extraction
+                                  source, kept for provenance
 
-This notebook contains the complete end-to-end pipeline, including model setup, numerical simulation, failure evaluation, and figure generation for a representative lithology (augen gneiss).
+crack_digitized_data/      raw: digitized laboratory fracture traces
+tensile_samples_data.csv   raw: Brazilian-test strengths, cohesion, friction angle
+selected_all_samples.*     raw: the original spreadsheet and its CSV export
 
-For conciseness, only one rock type is included in this public repository.  
-The same modelling approach and workflow were applied to the second lithology (psammitic schist) using identical numerical methods, differing only in material parameters. All results are therefore fully reproducible using the provided scripts.
+outputs/                   everything generated, sorted by what it is
+  figures/                 every figure, in every format it is saved in
+  tables/                  every machine-readable result
+  fields/                  cached solver state that later steps read back
+
+archive/                   historical and exploratory material, excluded from release
+```
+
+There are no loose Python modules at the repository root: all project code lives
+in `tools/`, `scripts/` or `tests/`.
+
+**The notebooks define no functions.** Each is a sequence of markdown and
+one-line calls into `tools/`. The analysis itself lives in `tools/analysis/`,
+one module per section, and the two lithology notebooks are generated from a
+single template by `scripts/build_notebooks.py`, which is what guarantees that
+gneiss and schist run identical code and differ only in the `Lithology` they
+bind.
+
+Editing a notebook cell by hand will be overwritten on the next build. Edit
+instead:
+
+| To change | Edit |
+|---|---|
+| what an analysis does | the module in `tools/analysis/` |
+| notebook structure or prose | `scripts/build_notebooks.py` |
+| a cell carried over verbatim | `scripts/notebook_cells/*.json` |
+
+then run `python scripts/build_notebooks.py`. The builder preserves the stored
+outputs of any cell whose source is unchanged, so editing prose does not discard
+results. A cell whose *code* changed correctly loses its outputs and shows as
+unexecuted.
+
+`tools/analysis/` is itself generated from the pre-refactor notebooks by
+`scripts/extract_analysis_sections.py`. That script is the record of the
+migration: which cell each module came from, which cells were deliberately
+dropped and why, and every correction applied to the extracted code. Corrections
+live there as a declared `PATCHES` table rather than as hand edits, so they
+survive regeneration.
+
+## 6. Where generated output goes
+
+Everything generated lands under one directory, split by what the file is
+rather than by which section produced it:
+
+| Directory | Holds |
+|---|---|
+| `outputs/figures/` | every figure, as PDF and PNG |
+| `outputs/tables/` | every machine-readable result a reader would open |
+| `outputs/fields/` | solver state later steps read back: the cached field archives, the per-specimen crack traces, the plot caches |
+
+`outputs/fields/` is the expensive part. It is what allows the tables and
+figures to be rebuilt without re-running the multi-hour
+displacement-discontinuity solve.
+
+`tools/output_dirs.py` is the single authority for these three paths, and the
+extractor applies them to the generated analysis modules, so no section carries
+an output directory of its own.
 
 ---
 
-## 3. Data and outputs
+## 7. Installation
 
-Input data are provided in standard text formats, and generated figures are written to the output directories during notebook execution. The file structure mirrors the workflow used in the study to facilitate transparent reproducibility.
+Python 3.10 or later (developed and tested on 3.13.5).
+
+```bash
+python -m venv .venv && source .venv/bin/activate      # or conda create ...
+python -m pip install -e .
+python -m pip install -r requirements.txt              # pinned tested versions
+```
+
+## 8. Running the tests
+
+```bash
+python -m pytest tests/ -q
+```
+
+The suite covers the angle and stress conventions, the four-mechanism
+classifier, trace loading and orientation fitting, the 14-specimen pairing, the
+publication plot style, and non-regression of the reported numbers. It also
+pins several structural properties that are easy to break silently:
+
+- the two lithology notebooks run identical code and differ only in the
+  `Lithology` they bind;
+- no notebook defines a function;
+- no figure filename is written by more than one place;
+- every generator script is reachable from a notebook;
+- axis labels carry no LaTeX escapes, which would print literally.
+
+## 9. Reproducing the analysis outputs
+
+```bash
+python scripts/reproduce_all.py --mode full
+```
+
+This validates the raw inputs, records the environment and seed, regenerates the
+validation tables and the four seven-panel composite figures from the cached
+field archives, and exits non-zero on any failure. A fast structural check is
+available with `--mode smoke`.
+
+| Output | Path |
+|---|---|
+| Specimen pairing manifest | `outputs/tables/sample_pairing_manifest.csv` |
+| Orientation comparison | `outputs/tables/trace_comparison_metrics.csv` |
+| Orientation validation | `outputs/tables/fracture_orientation_validation.csv` |
+| Trace overlays (2 × 7 panels) | `outputs/figures/fracture_trace_overlay_*_7panel.{pdf,png}` |
+| Classification maps (2 × 7 panels) | `outputs/figures/failure_mechanism_classification_*_7panel.{pdf,png}` |
+| Strain-energy partitioning | `outputs/figures/strain_partitioning_two_rocks.{pdf,png}` |
+
+## 10. Running the notebooks
+
+Run them **from the repository root**; they use relative paths.
+
+Run the two lithology notebooks first, in either order, then the general one:
+it compares fields the lithology notebooks export and asserts up front that all
+fourteen are present.
+
+```bash
+for nb in Tensile_augen_gneiss Tensile_psammitic_schist Tensile_general_plots; do
+    jupyter nbconvert --to notebook --execute --inplace \
+        --ExecutePreprocessor.kernel_name=viscoquake \
+        --ExecutePreprocessor.timeout=14400 "$nb.ipynb"
+done
+```
+
+Expect roughly 40 minutes for a lithology notebook, most of it the
+displacement-discontinuity solve and the crack-growth sections.
+
+To check that every section still runs, without executing notebooks:
+
+```bash
+python scripts/smoke_sections.py            # every section, both lithologies
+python scripts/smoke_sections.py --only stress_field strain_proxy
+```
+
+The full solver notebooks in `legacy_notebooks/` are needed only when the cached
+field archives must be regenerated from scratch (about two hours per lithology).
+
+> **Note.** Running a legacy solver notebook regenerates
+> `outputs/fields/ddm_crack_sample_*.csv`, which the orientation validation
+> consumes. Back those files up first if you want to compare against the
+> reported results.
+
+## 11. Random seeds
+
+Stochastic steps take an explicit seed. The orientation-fit bootstrap uses
+`20260807`, recorded in `scripts/reproduce_all.py` and written to
+`outputs/tables/environment.json` on every run. Heterogeneity fields use
+`numpy.random.default_rng` with explicit integer seeds.
+
+Two consecutive runs with the same seed produce bitwise-identical tables and PNG
+figures. PDF outputs differ only in embedded creation timestamps.
+
+---
+
+## 12. Known limitations
+
+- The framework is two-dimensional and pre-failure elastic. It does not model
+  progressive damage, post-peak softening, crack-surface friction, or stress
+  redistribution during growth.
+- Weak-plane strengths are proxies scaled from the matrix values
+  (`T_wp = 0.35 T₀`, `c_wp = 0.60 c`). No foliation-plane strength tests exist in
+  this dataset, so the absolute balance between weak-plane and matrix utilities
+  inherits that uncertainty.
+- One specimen per fabric angle, so between-specimen orientation scatter is not
+  measurable. Reported per-specimen uncertainty is digitization and fit scatter.
+- The fracture-orientation comparison is a consistency check, not a validation
+  of predicted orientation: observed and predicted fractures are alike
+  loading-subparallel, and a predictor that simply assigns the loading direction
+  matches the observations at least as well.
+- `G/G_c` uses a nominal unit toughness and expresses relative along-path
+  modulation of the crack-driving force, not an absolute margin against failure.
+- The stepper advances the trajectory at every increment, so it represents
+  neither arrest nor re-initiation.
+
+## 13. Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `ModuleNotFoundError: No module named 'tools'` | Install the package with `python -m pip install -e .`, or run from the repository root. |
+| `FileNotFoundError: tensile_samples_data.csv` | Run with the repository root as the working directory. |
+| `ModuleNotFoundError` for a bare module name such as `stress_helpers` | These modules moved into `tools/`. Import `tools.stress_helpers`. |
+| `RuntimeError: no lithology bound` | A section's internals were called directly. Call its `main(rock)`, or wrap the call in `tools.analysis._context.using(rock)`. |
+| An edit to a notebook cell disappeared | The notebooks are generated; see section 5. |
+| A figure was written but is not where you expect | Every figure goes to `outputs/figures/`, whichever section produced it. |
+| A long notebook run appears to hang with an empty log | Python buffers output. Run with `python -u`, or check that the process is alive before restarting it. |
+| Figures open windows during a batch run | Set a headless backend: `MPLBACKEND=Agg`. |
+
+## 14. Data included in this repository
+
+All data needed to reproduce the reported results is tracked here:
+
+| Data | Location | Files |
+|---|---|---|
+| Brazilian-test strengths, cohesion, friction angle | `tensile_samples_data.csv`, `selected_all_samples*.csv` | 3 |
+| Digitized laboratory fracture traces | `crack_digitized_data/` | 14 |
+| Model-derived (DDM) fracture traces | `outputs/fields/ddm_crack_sample_*.csv` | 14 |
+| Cached orthotropic field archives | `outputs/fields/fields_npz/` | 14 (36 MB) |
+| Step-wise crack diagnostics | `outputs/fields/smoke_*.csv` | 29 |
+
+The cached field archives are included on purpose: they are what allow
+`scripts/reproduce_all.py` to regenerate the validation tables and all four
+composite figures **without** the multi-hour notebook run.
+
+`selected_all_samples.xls` is retained as the original spreadsheet alongside its
+CSV export. No data file is excluded.
+
+## 15. License and citation
+
+See `LICENSE`. Citation details and a persistent identifier will be added on
+acceptance of the associated manuscript.

@@ -1,34 +1,92 @@
-# dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# env files
-.env
-.env.local
-.env.*.local
-
-# build
-dist/
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
 build/
-.tmp/
+dist/
+.eggs/
 
-# logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Virtual environments
+.venv/
+venv/
+env/
 
-# OS files
-.DS_Store
-Thumbs.db
+# ---------------------------------------------------------------------------
+# Tooling caches
+# ---------------------------------------------------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
 
-# macOS
+# ---------------------------------------------------------------------------
+# OS and editor
+# ---------------------------------------------------------------------------
 .DS_Store
 **/.DS_Store
+Thumbs.db
+.vscode/
+.idea/
 
-# data files before final processing and release
-*.tsv
-*.csv
+# ---------------------------------------------------------------------------
+# LaTeX build products (the .tex, .bib and figures are the sources)
+# ---------------------------------------------------------------------------
+manuscript/*.aux
+manuscript/*.bbl
+manuscript/*.blg
+manuscript/*.log
+manuscript/*.fls
+manuscript/*.fdb_latexmk
+manuscript/*.out
+manuscript/*.synctex.gz
+manuscript/*.toc
+manuscript/*.spl
+manuscript/*.pdf
+
+# ---------------------------------------------------------------------------
+# Rendered notebook exports: large (24-43 MB) and regenerable with nbconvert
+# ---------------------------------------------------------------------------
+Tensile_*.html
+Tensile_*.pdf
+
+# NOTE: archive/ is deliberately NOT ignored. Its contents were moved there
+# with `git mv`, so they remain tracked and their history is preserved. The
+# directory is excluded from the *release package* by the packaging
+# configuration, not by version control.
+
+# ---------------------------------------------------------------------------
+# Transient run artefacts
+# ---------------------------------------------------------------------------
+*.log
+
+# ---------------------------------------------------------------------------
+# DATA POLICY
+# ---------------------------------------------------------------------------
+# Decision taken by the authors: the raw data is tracked and published.
+# Tracked accordingly:
+#   tensile_samples_data.csv, selected_all_samples*.csv   experimental strengths
+#   crack_digitized_data/                14 digitized laboratory traces
+#   outputs/fields/ddm_crack_sample_*.csv      14 model-derived traces
+#   outputs/fields/fields_npz/           14 cached field archives (36 MB) - these
+#                                        make the validation tables and figures
+#                                        reproducible without the multi-hour
+#                                        notebook run
+#   outputs/fields/smoke_*.csv           step-wise crack diagnostics
+#   selected_all_samples.xls             original spreadsheet, retained as the
+#                                        source format alongside its CSV export
+# No data file is excluded.
+
+# Executed notebook copies are large (33 MB) and regenerable
+outputs/tables/executed_notebooks/
+
+# Solver caches. These are keyed on a hash of the specimen geometry and
+# material, so they rebuild themselves when anything they depend on changes;
+# committing them would only pin a stale solve.
+outputs/fields/_cache_*/
+
+
+# Created by pytest automatically.
+*
+
