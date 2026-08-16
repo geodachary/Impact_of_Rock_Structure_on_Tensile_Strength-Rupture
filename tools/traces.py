@@ -1,0 +1,416 @@
+"""Fracture-trace loading, primary-segment selection, orientation fitting, comparison.
+
+Consolidates the digitized-trace loading conventions audited from
+``crack_data_plot.py`` with the orientation-extraction rule, so that observed
+and predicted traces are treated identically. See
+the module docstring below for the audited conventions.
+
+Coordinate handling
+-------------------
+Both datasets are natively in the global frame of :mod:`tools.conventions`
+(metres, disc-centred, ``+y`` loading), so the transform between them is the
+identity. The only operation applied to observed data is the radial projection
+of points digitized marginally outside the specimen boundary, which reproduces
+``crack_data_plot.py``'s own behaviour.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from .conventions import (MAX_TRACE_GAP_M, RADIUS_M, DEFAULT_CENTRAL_FRAC,
+                          axial_angular_error_deg, signed_axial_difference_deg)
+from . import lithology as lith
+
+
+# ---------------------------------------------------------------------------
+# Loading
+# ---------------------------------------------------------------------------
+def load_observed_trace(path):
+    """Load a digitized laboratory trace.
+
+    Headerless two-column CSV, ``x`` and ``y`` in metres, disc centre at the
+    origin. Non-numeric rows are coerced and dropped. Points outside ``r = R``
+    are projected radially onto the boundary.
+
+    Returns
+    -------
+    dict with ``x``, ``y`` (used arrays), ``x_src``, ``y_src`` (untransformed),
+    and provenance counters.
+    """
+    path = Path(path)
+    df = pd.read_csv(path, header=None, names=["x", "y"])
+    for c in ("x", "y"):
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    n_raw = len(df)
+    df = df.dropna(subset=["x", "y"]).reset_index(drop=True)
+    x_src = df["x"].to_numpy(float)
+    y_src = df["y"].to_numpy(float)
+    x, y = x_src.copy(), y_src.copy()
+    r = np.hypot(x, y)
+    n_outside = int(np.sum(r > RADIUS_M))
+    outside = r > RADIUS_M
+    if np.any(outside):
+        scale = RADIUS_M / r[outside]
+        x[outside] *= scale
+        y[outside] *= scale
+    if len(x) and np.max(np.hypot(x_src, y_src)) > 1.0:
+        raise ValueError(f"{path.name}: coordinates look like millimetres, not metres")
+    return dict(x=x, y=y, x_src=x_src, y_src=y_src, n_rows_raw=n_raw,
+                n_points=len(x), n_dropped=n_raw - len(x), n_outside_disc=n_outside,
+                source=str(path))
+
+
+def load_predicted_trace(path):
+    """Load a DDM predicted trace (header ``order,x_m,y_m``, metres)."""
+    path = Path(path)
+    df = pd.read_csv(path).dropna(subset=["x_m", "y_m"]).reset_index(drop=True)
+    if "order" in df.columns:
+        df = df.sort_values("order").reset_index(drop=True)
+    x = df["x_m"].to_numpy(float)
+    y = df["y_m"].to_numpy(float)
+    return dict(x=x, y=y, x_src=x.copy(), y_src=y.copy(), n_rows_raw=len(df),
+                n_points=len(x), n_dropped=0,
+                n_outside_disc=int(np.sum(np.hypot(x, y) > RADIUS_M)),
+                source=str(path))
+
+
+# ---------------------------------------------------------------------------
+# Geometry
+# ---------------------------------------------------------------------------
+def split_segments(x, y, max_gap=MAX_TRACE_GAP_M):
+    """Split a point sequence wherever consecutive spacing exceeds ``max_gap``."""
+    x = np.asarray(x, float)
+    y = np.asarray(y, float)
+    if len(x) < 2:
+        return [(x, y)]
+    d = np.hypot(np.diff(x), np.diff(y))
+    brk = np.where(d > max_gap)[0] + 1
+    return [(x[i], y[i]) for i in np.split(np.arange(len(x)), brk) if len(i)]
+
+
+def arclength(x, y):
+    """Cumulative polyline length."""
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    return float(np.sum(np.hypot(np.diff(x), np.diff(y)))) if len(x) > 1 else 0.0
+
+
+def primary_segment(x, y, max_gap=MAX_TRACE_GAP_M):
+    """Objective primary-fracture rule: the connected segment of greatest arc length.
+
+    Returns ``(x, y, n_segments, primary_length, total_length)``.
+    """
+    segs = split_segments(x, y, max_gap)
+    lens = [arclength(sx, sy) for sx, sy in segs]
+    k = int(np.argmax(lens))
+    return segs[k][0], segs[k][1], len(segs), lens[k], float(np.sum(lens))
+
+
+def central_mask(x, y, frac=DEFAULT_CENTRAL_FRAC):
+    """Points within ``frac * R`` of the disc centre."""
+    return np.hypot(np.asarray(x, float), np.asarray(y, float)) <= frac * RADIUS_M
+
+
+def fit_orientation_deg(x, y):
+    """Total-least-squares axial orientation, degrees CCW from +x, in ``[0, 180)``.
+
+    Principal axis of the mean-centred covariance — appropriate because both
+    coordinates carry error. Also returns a collinearity measure
+    ``1 - lambda_min/lambda_max`` (1 = perfectly line-like, 0 = isotropic).
+    """
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    if len(x) < 2:
+        return np.nan, np.nan
+    pts = np.column_stack([x, y])
+    pts = pts - pts.mean(axis=0)
+    if not np.all(np.isfinite(pts)):
+        return np.nan, np.nan
+    cov = np.cov(pts, rowvar=False)
+    if not np.all(np.isfinite(cov)):
+        return np.nan, np.nan
+    w, v = np.linalg.eigh(cov)
+    major = v[:, int(np.argmax(w))]
+    ang = float(np.degrees(np.arctan2(major[1], major[0])) % 180.0)
+    lmax, lmin = float(np.max(w)), float(np.min(w))
+    return ang, (1.0 - lmin / lmax if lmax > 0 else np.nan)
+
+
+def angle_standard_error_deg(x, y):
+    """Standard error of the total-least-squares orientation, in degrees.
+
+    For points scattered about a line, the fitted angle has
+
+        sigma_theta = sigma_perp / (sqrt(n) * s_parallel)
+
+    with ``sigma_perp`` the RMS perpendicular residual (here, digitization
+    scatter), ``s_parallel`` the RMS spread along the line and ``n`` the point
+    count. Precision therefore depends on the *baseline* as much as on the
+    number of points: halving the span costs as much as quartering the sample.
+
+    This is what makes a windowed fit dangerous on a sparsely digitized trace.
+    Restricting to the central disc keeps roughly half the points and a third
+    of the baseline, so it can only inflate the variance. The measure is
+    reported alongside every orientation as :data:`ANGLE_SE_ADVISORY_DEG`.
+    """
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    if len(x) < 3:
+        return np.inf
+    pts = np.column_stack([x, y])
+    pts = pts - pts.mean(axis=0)
+    if not np.all(np.isfinite(pts)):
+        return np.inf
+    w, v = np.linalg.eigh(np.cov(pts, rowvar=False))
+    along = pts @ v[:, int(np.argmax(w))]
+    perp = pts @ v[:, int(np.argmin(w))]
+    s_par = float(np.sqrt(np.mean(along ** 2)))
+    if s_par <= 0:
+        return np.inf
+    s_perp = float(np.sqrt(np.mean(perp ** 2)))
+    return float(np.degrees(s_perp / (np.sqrt(len(x)) * s_par)))
+
+
+#: Standard error above which a fitted orientation should not be read as a
+#: measurement. Reported per specimen, not used to select an estimator: the
+#: orientation is fitted over the full primary segment for every specimen, so
+#: there is no per-specimen decision for a threshold to make. Kept because a
+#: reader comparing a 2 deg error against a 5 deg criterion is entitled to know
+#: which orientations the digitization actually determines.
+ANGLE_SE_ADVISORY_DEG = 2.0
+
+
+def orientation_central(x, y, frac=DEFAULT_CENTRAL_FRAC, min_pts=3):
+    """Fit orientation over the central disc region, falling back to the full segment.
+
+    Returns ``(angle_deg, collinearity, n_central_points, fallback_used)``.
+    """
+    m = central_mask(x, y, frac)
+    if int(np.sum(m)) >= min_pts:
+        a, c = fit_orientation_deg(np.asarray(x)[m], np.asarray(y)[m])
+        return a, c, int(np.sum(m)), False
+    a, c = fit_orientation_deg(x, y)
+    return a, c, int(np.sum(m)), True
+
+
+def orientation_pair(ox, oy, px, py, frac=DEFAULT_CENTRAL_FRAC, min_pts=3,
+                     domain="full_primary_segment"):
+    """Fit both traces of one specimen over the whole primary segment.
+
+    Orientation is taken over the entire primary segment, identically for the
+    observed and the predicted trace. ``frac`` is accepted so a caller can
+    still ask for the windowed variant as a sensitivity check, but it does not
+    select the domain.
+
+    Why not the central window
+    --------------------------
+    Restricting the fit to the central half of the radius was meant to keep it
+    clear of the platen contacts, where a trace curves toward the loading
+    points. It fails in two different ways, and between them they accounted for
+    both of the large orientation errors previously reported.
+
+    * **Imprecision.** The window discards roughly half the points and two
+      thirds of the baseline, and the standard error of a fitted angle goes as
+      ``sigma_perp / (sqrt(n) * s_parallel)``. On a sparsely digitized trace
+      that is ruinous: specimen 12 keeps 8 of 15 points inside the window and
+      its orientation carries a standard error of 4.0 deg.
+    * **Domain-dependent bias.** Where a trace is curved, the middle third has
+      a genuinely different tangent from the chord of the whole segment, and
+      the fit to that sub-piece can be *tight* while pointing somewhere else.
+      Specimen 5 is the case in point: 102.63 deg windowed with a comfortable
+      standard error of 1.93 deg, against 93.68 deg over the full segment. A
+      standard error measures scatter about the fitted line and cannot see this
+      at all, which is why a precision test alone does not catch it.
+
+    Fitting the full segment removes both. It uses all the digitized evidence,
+    it makes the estimate independent of where the window is drawn, and it is
+    one uniform rule for all fourteen specimens rather than a per-specimen
+    choice. The window does remove a small systematic curvature from the
+    *predicted* paths, which bend as the stepper drives the tip to the boundary
+    (mean full-minus-central shift -1.63 deg, t = -2.92, p = 0.012), but that
+    is far smaller than the 9 to 13 deg of domain-dependence it imports on the
+    observed side, and it is common to both traces here because the same rule
+    is applied to each.
+
+    Returns ``(o_ang, o_col, p_ang, p_col, domain, o_se, p_se)``.
+    """
+    if domain == "central_window":
+        # Retained only so the reported window-sensitivity check is
+        # reproducible. Not the estimator; see above for why.
+        om, pm = central_mask(ox, oy, frac), central_mask(px, py, frac)
+        if int(np.sum(om)) >= min_pts and int(np.sum(pm)) >= min_pts:
+            ox, oy = np.asarray(ox)[om], np.asarray(oy)[om]
+            px, py = np.asarray(px)[pm], np.asarray(py)[pm]
+        else:
+            domain = "full_primary_segment"
+
+    o_ang, o_col = fit_orientation_deg(ox, oy)
+    p_ang, p_col = fit_orientation_deg(px, py)
+    o_se = angle_standard_error_deg(ox, oy)
+    p_se = angle_standard_error_deg(px, py)
+    return o_ang, o_col, p_ang, p_col, domain, o_se, p_se
+
+
+def bootstrap_orientation_sd(x, y, frac=DEFAULT_CENTRAL_FRAC, n=2000, seed=20260807,
+                             use_central=True):
+    """Bootstrap SD of the fitted orientation: digitization and fit scatter.
+
+    This is **not** a replicate standard deviation: one specimen was tested per
+    (lithology, fabric angle) pair, so between-specimen scatter is not
+    measurable from this dataset.
+
+    ``use_central`` must match the domain the orientation itself was fitted on
+    (see :func:`orientation_pair`). Quoting a scatter measured inside the
+    window beside an angle measured over the whole segment would describe a fit
+    that was never performed.
+    """
+    m = central_mask(x, y, frac)
+    xs, ys = (np.asarray(x)[m], np.asarray(y)[m]) if (
+        use_central and int(np.sum(m)) >= 3) else (np.asarray(x), np.asarray(y))
+    if len(xs) < 3:
+        return np.nan
+    base, _ = fit_orientation_deg(xs, ys)
+    if not np.isfinite(base):
+        return np.nan
+    rng = np.random.default_rng(seed)
+    devs = []
+    for _ in range(n):
+        idx = rng.integers(0, len(xs), len(xs))
+        a, _c = fit_orientation_deg(xs[idx], ys[idx])
+        if np.isfinite(a):
+            devs.append(signed_axial_difference_deg(a, base))
+    return float(np.std(devs, ddof=1)) if len(devs) > 2 else np.nan
+
+
+def resample_polyline(x, y, n=400):
+    """Arc-length resampling so shape metrics are not biased by point density."""
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    if len(x) < 2:
+        return x, y
+    s = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
+    if s[-1] <= 0:
+        return x, y
+    t = np.linspace(0.0, s[-1], n)
+    return np.interp(t, s, x), np.interp(t, s, y)
+
+
+def shape_metrics(ax, ay, bx, by, n=400):
+    """Supplementary shape agreement: symmetric mean nearest-neighbour and Hausdorff."""
+    if len(ax) < 2 or len(bx) < 2:
+        return dict(symmetric_mean_nn_m=np.nan, hausdorff_m=np.nan)
+    arx, ary = resample_polyline(ax, ay, n)
+    brx, bry = resample_polyline(bx, by, n)
+    d = np.hypot(arx[:, None] - brx[None, :], ary[:, None] - bry[None, :])
+    d_ab, d_ba = d.min(axis=1), d.min(axis=0)
+    return dict(symmetric_mean_nn_m=float(0.5 * (d_ab.mean() + d_ba.mean())),
+                hausdorff_m=float(max(d_ab.max(), d_ba.max())))
+
+
+# ---------------------------------------------------------------------------
+# Specimen-level comparison
+# ---------------------------------------------------------------------------
+def compare_specimen(sample_id, frac=DEFAULT_CENTRAL_FRAC, root=None, seed=20260807,
+                     domain="full_primary_segment"):
+    """Full observed-vs-predicted orientation comparison for one specimen."""
+    lithology = lith.lithology_of_sample(sample_id)
+    angle = lithology.angle_for_sample(sample_id)
+    obs_p = lith.observed_trace_path(sample_id, root)
+    pred_p = lith.predicted_trace_path(sample_id, root)
+
+    base = dict(sample=int(sample_id), lithology=lithology.display_name,
+                lithology_key=lithology.key, experimental_angle_deg=angle,
+                observed_source=str(obs_p), predicted_source=str(pred_p))
+
+    if not obs_p.exists() or not pred_p.exists():
+        base.update(status="blocked",
+                    reason=f"missing file(s): observed={obs_p.exists()}, "
+                           f"predicted={pred_p.exists()}")
+        return base
+
+    o = load_observed_trace(obs_p)
+    p = load_predicted_trace(pred_p)
+    oxp, oyp, o_nseg, o_len, o_tot = primary_segment(o["x"], o["y"])
+    pxp, pyp, p_nseg, p_len, p_tot = primary_segment(p["x"], p["y"])
+
+    o_ang, o_col, p_ang, p_col, domain, o_se, p_se = orientation_pair(
+        oxp, oyp, pxp, pyp, frac, domain=domain)
+    o_sd = bootstrap_orientation_sd(
+        oxp, oyp, frac, seed=seed, use_central=(domain == "central_window"))
+
+    om = central_mask(oxp, oyp, frac)
+    pm = central_mask(pxp, pyp, frac)
+    o_ncen, p_ncen = int(np.sum(om)), int(np.sum(pm))
+    sm = shape_metrics(np.asarray(oxp)[om], np.asarray(oyp)[om],
+                       np.asarray(pxp)[pm], np.asarray(pyp)[pm])
+
+    base.update(
+        observed_orientation_deg=o_ang, observed_bootstrap_sd_deg=o_sd,
+        predicted_orientation_deg=p_ang,
+        abs_axial_angular_error_deg=float(axial_angular_error_deg(p_ang, o_ang)),
+        signed_wrapped_diff_deg=float(signed_axial_difference_deg(p_ang, o_ang)),
+        observed_n_points=o["n_points"], predicted_n_points=p["n_points"],
+        observed_n_segments=o_nseg, predicted_n_segments=p_nseg,
+        observed_primary_seg_length_m=o_len,
+        observed_primary_frac_of_total_length=(o_len / o_tot) if o_tot else np.nan,
+        predicted_primary_seg_length_m=p_len,
+        observed_n_points_central=o_ncen, predicted_n_points_central=p_ncen,
+        observed_fit_collinearity=o_col, predicted_fit_collinearity=p_col,
+        # Which domain the pair was fitted on, the precision that decided it,
+        # and the tolerance in force. Reported for every specimen so a reader
+        # can see which orientations the data actually determines rather than
+        # only which ones triggered the fallback.
+        orientation_fit_domain=domain,
+        observed_orientation_se_deg=(None if not np.isfinite(o_se) else o_se),
+        predicted_orientation_se_deg=(None if not np.isfinite(p_se) else p_se),
+        orientation_se_advisory_deg=ANGLE_SE_ADVISORY_DEG,
+        observed_central_fallback_used=(domain == "full"),
+        predicted_central_fallback_used=(domain == "full"),
+        observed_n_outside_disc=o["n_outside_disc"],
+        supp_symmetric_mean_nn_distance_m=sm["symmetric_mean_nn_m"],
+        supp_hausdorff_distance_m=sm["hausdorff_m"],
+        central_fraction_used=frac, status="computed", reason="",
+        _obs_xy=(oxp, oyp), _pred_xy=(pxp, pyp),
+        _obs_full=(o["x"], o["y"]),
+    )
+    return base
+
+
+def compare_all(frac=DEFAULT_CENTRAL_FRAC, root=None, seed=20260807,
+                domain="full_primary_segment"):
+    """Comparison for all 14 specimens, in specimen order."""
+    return [compare_specimen(r["sample"], frac, root, seed, domain)
+            for r in lith.pairing_table()]
+
+
+def aggregate_statistics(rows):
+    """MAE, RMSE, median, max and tolerance counts from computed rows only."""
+    e = np.array([r["abs_axial_angular_error_deg"] for r in rows
+                  if r.get("status") == "computed"], float)
+    e = e[np.isfinite(e)]
+    if not len(e):
+        return dict(n=0, status="not_computable",
+                    reason="no specimen produced a finite angular error")
+    return dict(n=int(len(e)), mae_deg=float(e.mean()),
+                rmse_deg=float(np.sqrt((e ** 2).mean())),
+                median_deg=float(np.median(e)), max_deg=float(e.max()),
+                n_within_5=int((e <= 5).sum()), pct_within_5=100 * float((e <= 5).mean()),
+                n_within_10=int((e <= 10).sum()), pct_within_10=100 * float((e <= 10).mean()),
+                status="computed", reason="")
+
+
+def null_model_statistics(rows, null_orientation_deg=None):
+    """Error of a trivial predictor, for assessing whether the model has skill.
+
+    ``None`` uses the loading-axis orientation. Brazilian-disc fractures are
+    loading-subparallel almost by construction, so error statistics are only
+    evidence of skill if they beat this null.
+    """
+    from .conventions import LOADING_AXIS_DEG
+    null = LOADING_AXIS_DEG if null_orientation_deg is None else float(null_orientation_deg)
+    obs = np.array([r["observed_orientation_deg"] for r in rows
+                    if r.get("status") == "computed"], float)
+    e = axial_angular_error_deg(np.full_like(obs, null), obs)
+    return dict(n=int(len(e)), null_orientation_deg=null, mae_deg=float(e.mean()),
+                rmse_deg=float(np.sqrt((e ** 2).mean())),
+                n_within_5=int((e <= 5).sum()), n_within_10=int((e <= 10).sum()))

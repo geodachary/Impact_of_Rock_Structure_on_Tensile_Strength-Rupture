@@ -1,0 +1,10 @@
+figure,figure_file,natural_width_pt,included_frac,scale,min_internal_pt,median_internal_pt,min_on_page_pt,median_on_page_pt,legible,required_frac,status,reason
+Fig 5,Anistropic_model_combined_both_rocks.pdf,483.2,1.0,0.9707,9.0,11.0,8.74,10.68,True,0.916,computed,
+Fig 6a,Weakening_factor_both_rocks.pdf,418.2,0.92,1.0318,10.0,11.0,10.32,11.35,True,0.713,computed,
+Fig 6b,ucs_vs_loading_angle_with_ci.pdf,559.9,0.92,0.7706,12.0,12.0,9.25,9.25,True,0.796,computed,
+Fig 9a,psammitic_schist_stress_distribution.pdf,552.8,0.92,0.7806,12.0,12.0,9.37,9.37,True,0.786,computed,
+Fig 9b,augen_gneiss_stress_distribution.pdf,552.8,0.92,0.7806,12.0,12.0,9.37,9.37,True,0.786,computed,
+Fig 10a,psammitic_schist_principal_tensile_strain.pdf,559.8,0.92,0.7708,12.0,12.0,9.25,9.25,True,0.796,computed,
+Fig 10b,augen_gneiss_principal_tensile_strain.pdf,559.8,0.92,0.7708,12.0,12.0,9.25,9.25,True,0.796,computed,
+Fig 11a,psammitic_schist_direction_circles.pdf,590.1,0.92,0.7312,12.0,12.0,8.77,8.77,True,0.839,computed,
+Fig 11b,augen_gneiss_direction_circles.pdf,590.1,0.92,0.7312,12.0,12.0,8.77,8.77,True,0.839,computed,

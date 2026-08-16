@@ -1,0 +1,8 @@
+sample_id,rock,angle_deg,R_m,stop_reason,nsteps,Gc0
+8,Psammitic schist,0.0,0.025500000000000002,reached_boundary,154,1.0
+9,Psammitic schist,15.0,0.025500000000000002,reached_boundary,98,1.0
+10,Psammitic schist,30.0,0.025500000000000002,reached_boundary,98,1.0
+11,Psammitic schist,45.0,0.025500000000000002,reached_boundary,96,1.0
+12,Psammitic schist,60.0,0.025500000000000002,reached_boundary,96,1.0
+13,Psammitic schist,75.0,0.025500000000000002,reached_boundary,97,1.0
+14,Psammitic schist,90.0,0.025500000000000002,reached_boundary,96,1.0

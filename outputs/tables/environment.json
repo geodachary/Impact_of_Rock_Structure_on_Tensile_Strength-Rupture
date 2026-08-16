@@ -1,0 +1,12 @@
+{
+  "os": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "python": "3.13.5",
+  "executable": "/Users/durgaacharya/miniconda3/envs/viscoquake/bin/python",
+  "numpy": "2.3.0",
+  "scipy": "1.16.0",
+  "pandas": "2.3.0",
+  "matplotlib": "3.10.3",
+  "seed": 20260807,
+  "timestamp_utc": "2026-08-16T18:01:11Z"
+}

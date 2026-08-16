@@ -1,0 +1,3 @@
+lithology,tensile_anisotropy,compressive_anisotropy,tensile_min_angle,tensile_max_angle,compressive_min_angle,compressive_max_angle,n_angles,tensile_exceeds_compressive,relative_separation_pct
+Augen Gneiss,1.5159585535350175,1.8721381989732209,75,0,45,90,7,False,-23.495341914700695
+Psammitic Schist,2.759913482335977,1.6881818181818182,75,0,45,90,7,True,63.48437429023019

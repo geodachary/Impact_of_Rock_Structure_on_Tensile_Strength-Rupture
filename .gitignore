@@ -51,10 +51,6 @@ manuscript/*.pdf
 Tensile_*.html
 Tensile_*.pdf
 
-# NOTE: archive/ is deliberately NOT ignored. Its contents were moved there
-# with `git mv`, so they remain tracked and their history is preserved. The
-# directory is excluded from the *release package* by the packaging
-# configuration, not by version control.
 
 # ---------------------------------------------------------------------------
 # Transient run artefacts
@@ -86,7 +82,23 @@ outputs/tables/executed_notebooks/
 # committing them would only pin a stale solve.
 outputs/fields/_cache_*/
 
+# ---------------------------------------------------------------------------
+# Present locally, deliberately not part of the published code release
+# ---------------------------------------------------------------------------
+# The pre-refactor notebooks that scripts/extract_analysis_sections.py reads,
+# plus the two full DDM solver notebooks. Keep them: they are the source the
+# generated tools/analysis/ modules come from, and the only way to rebuild the
+# cached field archives from scratch. They are not published because they carry
+# ~76 MB of stored output images and are superseded by the generated package.
+legacy_notebooks/
 
-# Created by pytest automatically.
-*
+# The paper itself. Publishing the manuscript alongside the software is not the
+# usual practice, and nothing in the code reads from here.
+manuscript/
 
+# Historical and exploratory material, superseded by the current analysis.
+archive/
+
+# Cloud-sync scratch directories, not project content.
+.tmp.driveupload/
+.backup_0809/

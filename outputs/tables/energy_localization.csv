@@ -1,0 +1,15 @@
+sample_id,rock,angle_deg,n_components,largest_fraction,elongation,corridor
+1,Augen gneiss,0.0,2,0.5002759381898455,1.1228418102016495,False
+2,Augen gneiss,15.0,2,0.5,1.0756662722007204,False
+3,Augen gneiss,30.0,2,0.5,1.141571427354902,False
+4,Augen gneiss,45.0,2,0.5,1.3612747798776508,False
+5,Augen gneiss,60.0,2,0.5,1.5281887406791095,False
+6,Augen gneiss,75.0,2,0.5,1.6219199823188195,False
+7,Augen gneiss,90.0,2,0.5,1.5749228506071664,False
+8,Psammitic schist,0.0,2,0.5,1.524984433635626,False
+9,Psammitic schist,15.0,2,0.5,1.4249184869872948,False
+10,Psammitic schist,30.0,2,0.5,1.1576920127578023,False
+11,Psammitic schist,45.0,2,0.5,1.3472534405679983,False
+12,Psammitic schist,60.0,1,1.0,4.711558667994622,True
+13,Psammitic schist,75.0,1,1.0,4.83470741332731,True
+14,Psammitic schist,90.0,1,1.0,4.840262948633885,True
