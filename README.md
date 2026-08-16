@@ -123,7 +123,6 @@ tools/                     the analysis package; every reusable function lives h
   <mechanics modules>        stress, geometry, rotation, Airy solution, crack helpers
 
 scripts/reproduce_all.py               one-command reproduction of tables and figures
-scripts/extract_analysis_sections.py   the notebook to tools/analysis migration
 scripts/build_notebooks.py             regenerates the three notebooks
 scripts/smoke_sections.py              runs every section once, both lithologies
 scripts/make_*.py                      the individual figure and table generators
@@ -132,9 +131,6 @@ tests/                                 unit, integration and regression tests
 Tensile_augen_gneiss.ipynb        specimens 1 to 7
 Tensile_psammitic_schist.ipynb    specimens 8 to 14
 Tensile_general_plots.ipynb       cross-lithology models and comparisons
-legacy_notebooks/pre_refactor/    the notebooks as they stood before the
-                                  tools/analysis migration; the extraction
-                                  source, kept for provenance
 
 crack_digitized_data/      raw: digitized laboratory fracture traces
 tensile_samples_data.csv   raw: Brazilian-test strengths, cohesion, friction angle
@@ -172,12 +168,16 @@ outputs of any cell whose source is unchanged, so editing prose does not discard
 results. A cell whose *code* changed correctly loses its outputs and shows as
 unexecuted.
 
-`tools/analysis/` is itself generated from the pre-refactor notebooks by
-`scripts/extract_analysis_sections.py`. That script is the record of the
-migration: which cell each module came from, which cells were deliberately
-dropped and why, and every correction applied to the extracted code. Corrections
-live there as a declared `PATCHES` table rather than as hand edits, so they
-survive regeneration.
+### On `tools/analysis/`
+
+Those modules were mechanically extracted from an earlier form of the notebooks,
+which is why each carries a header naming the cell it came from. **They ship as
+ordinary source and are the released form of the analysis**: edit them directly.
+
+The extraction tooling and the pre-refactor notebooks it reads are development
+material and are not distributed. Nothing here depends on them. The cached field
+archives in `outputs/fields/` are what make the results reproducible, and they
+are included.
 
 ## 6. Where generated output goes
 
@@ -274,13 +274,9 @@ python scripts/smoke_sections.py            # every section, both lithologies
 python scripts/smoke_sections.py --only stress_field strain_proxy
 ```
 
-The full solver notebooks in `legacy_notebooks/` are needed only when the cached
-field archives must be regenerated from scratch (about two hours per lithology).
-
-> **Note.** Running a legacy solver notebook regenerates
-> `outputs/fields/ddm_crack_sample_*.csv`, which the orientation validation
-> consumes. Back those files up first if you want to compare against the
-> reported results.
+The cached field archives in `outputs/fields/fields_npz/` are included, so
+neither the solve nor the notebooks are needed to rebuild the tables and
+composite figures; `scripts/reproduce_all.py` does that in seconds.
 
 ## 11. Random seeds
 

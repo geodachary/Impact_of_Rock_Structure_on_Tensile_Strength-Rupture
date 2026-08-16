@@ -7,7 +7,7 @@ to fall behind. They differ only in the ``Lithology`` they bind.
 
 None of the three notebooks defines a function. Every call goes into ``tools/``,
 where ``tools/analysis/`` holds one module per section of the analysis --
-extracted from the old inline cells by ``scripts/extract_analysis_sections.py``,
+extracted from the old inline cells during the notebook-to-package migration,
 which is where the record of what moved and what was dropped lives.
 
 Layout
