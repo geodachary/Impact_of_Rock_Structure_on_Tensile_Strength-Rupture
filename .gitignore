@@ -91,3 +91,6 @@ manuscript/
 # Cloud-sync scratch directories, not project content.
 .tmp.driveupload/
 .backup_0809/
+
+# define speecific ignore rules for particular files or directories
+revision_log.csv
