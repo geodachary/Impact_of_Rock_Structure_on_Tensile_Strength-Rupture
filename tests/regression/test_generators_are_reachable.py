@@ -57,8 +57,8 @@ def test_no_figure_has_two_producers():
     producers = collections.defaultdict(set)
     sources = list((REPO / "scripts").glob("*.py")) + list((REPO / "tools").rglob("*.py"))
     for path in sources:
-        if path.name == "extract_analysis_sections.py":
-            continue          # the migration record, not a producer
+        # scripts/ contains only figure and table producers, so nothing needs
+        # excluding here.
         for m in FIGURE.finditer(path.read_text(encoding="utf-8", errors="replace")):
             name = m.group(1)
             if name.startswith(".") and name.count(".") == 1:
