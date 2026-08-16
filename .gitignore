@@ -83,21 +83,10 @@ outputs/tables/executed_notebooks/
 outputs/fields/_cache_*/
 
 # ---------------------------------------------------------------------------
-# Present locally, deliberately not part of the published code release
+# Present locally, not part of the published code release
 # ---------------------------------------------------------------------------
-# The pre-refactor notebooks that scripts/extract_analysis_sections.py reads,
-# plus the two full DDM solver notebooks. Keep them: they are the source the
-# generated tools/analysis/ modules come from, and the only way to rebuild the
-# cached field archives from scratch. They are not published because they carry
-# ~76 MB of stored output images and are superseded by the generated package.
-legacy_notebooks/
-
-# The paper itself. Publishing the manuscript alongside the software is not the
-# usual practice, and nothing in the code reads from here.
 manuscript/
 
-# Historical and exploratory material, superseded by the current analysis.
-archive/
 
 # Cloud-sync scratch directories, not project content.
 .tmp.driveupload/

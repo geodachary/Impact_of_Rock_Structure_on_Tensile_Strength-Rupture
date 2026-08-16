@@ -1,7 +1,11 @@
 """Specimen table, triangular mesh and the local Mohr-Coulomb failure test used by the early diagnostic cells.
 
-Extracted verbatim from Tensile_augen_gneiss.ipynb cell 3 by
-``scripts/extract_analysis_sections.py``. The code is unchanged except that the
+**Maintained directly.** Originally extracted from Tensile_augen_gneiss.ipynb cell 3 during the
+notebook-to-package migration; that migration is complete and this module is now
+the source, so edit it here. The extraction tooling is retained only as a record
+of the migration and refuses to run without ``--force``.
+
+At extraction the code was unchanged except that the
 lithology-dependent numbers -- specimen ids, weak-plane spacing, phase-warp
 amplitude and the output filename -- now come from the :class:`~tools.lithology.
 Lithology` passed to :func:`main`, so both rocks run one implementation.
