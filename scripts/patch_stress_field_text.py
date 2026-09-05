@@ -252,7 +252,7 @@ def main():
 
     # ------------------------------------------------------------- new figure
     cap_tr = (
-        "    \\caption{\\rev{Tractions resolved on the foliation plane, averaged over the disk\n"
+        "    \\caption{\\rev{Tractions resolved on the foliation plane, averaged over the disc\n"
         "    interior inside $0.85R$, against fabric angle: (a) normal traction $\\sigma_n$,\n"
         "    tension positive, and (b) shear traction magnitude $|\\tau|$. Where the principal\n"
         "    directions are nearly orientation independent\n"
@@ -353,7 +353,7 @@ def main():
 \centering
 \small
 \caption{\rev{Foliation-resolved tractions and field-orientation statistics for every
-specimen, averaged over the disk interior inside $0.85R$. $\sigma_n$ is the normal
+specimen, averaged over the disc interior inside $0.85R$. $\sigma_n$ is the normal
 traction on the foliation with tension positive and $|\tau|$ the shear traction
 magnitude; the open fraction is the proportion of the interior in which the foliation
 is in tension. Rotation is the median rotation of the principal axes away from the

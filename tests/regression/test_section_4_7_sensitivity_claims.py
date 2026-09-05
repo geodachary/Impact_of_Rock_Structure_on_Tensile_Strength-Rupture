@@ -64,6 +64,13 @@ def test_the_spacing_response_is_flat_against_the_introduction_step():
             f"{rock}: spacing moves the failed area by {spread:.3f} pp, the "
             f"paper says {flat}")
         step = float(s.mean())
+        # the caption quotes this level; it is the mean over the spacings
+        # tested, not the value at the smallest one, which sits at the top
+        # of the range (7.86 against a 7.74-7.91 spread in the gneiss)
+        assert round(step, 1) == pytest.approx(
+            {"Augen gneiss": 7.8, "Psammitic schist": 6.7}[rock], abs=0.05), (
+            f"{rock}: introduction step is {step:.2f} pp; the caption quotes "
+            f"{{'Augen gneiss': 7.8, 'Psammitic schist': 6.7}}[rock]")
         assert step / spread > 30.0, (
             f"{rock}: the flat range is now {step / spread:.0f} times smaller "
             "than the introduction step, not the fiftieth the text claims")

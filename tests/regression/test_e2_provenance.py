@@ -106,3 +106,24 @@ def test_the_ratio_is_not_derivable_from_the_measurements():
                 f"{rock}: a measured combination now gives {c:.3f}, matching "
                 f"the adopted ratio {target[rock]}. Derive it and update both "
                 "the note in _toolkit and Table 5.")
+
+
+@pytest.mark.skipif(not TEX.is_file(), reason="manuscript not present")
+def test_section_2_8_counts_the_parameter_kinds_in_the_table():
+    """The prose count must track the category headings in Table 5.
+
+    Adding the adopted-E2 block made the table six kinds while the text still
+    said five. The eight headings collapse to six: the two solver blocks are
+    one kind, and the two literature blocks are another.
+    """
+    import re
+    t = TEX.read_text(encoding="utf-8")
+    heads = re.findall(r"\\multicolumn\{5\}\{l\}\{(?:\\rev\{)?\\textit\{([^}]*)",
+                       t)
+    assert len(heads) == 8, f"Table 5 now has {len(heads)} category headings: {heads}"
+    said = re.search(r"They fall into (\w+) kinds", t)
+    assert said, "the parameter-kind sentence has changed shape"
+    words = {"five": 5, "six": 6, "seven": 7, "eight": 8}
+    assert words[said.group(1)] == 6, (
+        f"Section 2.8 says {said.group(1)} kinds; the table's eight headings "
+        "collapse to six")

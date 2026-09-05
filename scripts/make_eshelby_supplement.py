@@ -39,7 +39,7 @@ FRACTIONS = np.array([0.10, 0.20, 0.30, 0.40])
 
 
 def remote_stress_from_field():
-    """Mean stress in the gneiss disk core, as the remote state for the estimate."""
+    """Mean stress in the gneiss disc core, as the remote state for the estimate."""
     for p in ft.field_files():
         f = ft.load_field(p)
         if f["rock"] == "Augen gneiss" and abs(f["angle_deg"]) < 1e-9:
@@ -54,7 +54,7 @@ def main():
     apply_plot_style()
     s_inf = remote_stress_from_field()
     Em = E_MATRIX_GPA * 1e3
-    print(f"  remote stress from the gneiss disk core: "
+    print(f"  remote stress from the gneiss disc core: "
           f"sxx={s_inf[0]:.2f}, syy={s_inf[1]:.2f}, txy={s_inf[2]:.2f} MPa")
 
     tab = eb.bound_table(Em, NU, NU, CONTRASTS, ASPECTS, s_inf)
@@ -118,7 +118,7 @@ def main():
 elastically homogeneous. Each row gives the uniform stress inside a single elliptical
 inclusion, from Eshelby's equivalent-inclusion solution \citep{Eshelby1957}, relative to
 the remote stress,
-for the mean stress state computed at the centre of the $0^\circ$ gneiss disk. Phase
+for the mean stress state computed at the center of the $0^\circ$ gneiss disc. Phase
 moduli and inclusion shape were not measured on these specimens, so the matrix modulus
 is fixed at """ + f"{E_MATRIX_GPA:.0f}" + r"""~GPa and the contrast and axial ratio are swept over ranges
 that bracket a feldspar--quartz aggregate in a micaceous matrix; the entries are
