@@ -235,6 +235,12 @@ def stage_sync_document_figures() -> int:
     Only files that exist in ``outputs/figures`` are touched. Photographs and
     hand-drawn schematics live in the document folder alone and are inputs;
     they are left untouched because there is nothing to copy over them.
+
+    The digest comparison below is meaningful because ``tools/__init__`` pins
+    SOURCE_DATE_EPOCH: matplotlib would otherwise stamp each PDF with the time
+    of the run, so every figure would differ on every rebuild and be recopied
+    whether or not the plot had changed. A non-zero copy count now means the
+    data moved.
     """
     import hashlib
     import re
