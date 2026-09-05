@@ -74,11 +74,11 @@ def test_intermediate_angles_are_markedly_asymmetric(df):
 
 def test_quoted_caption_values(df):
     g = df[df.status == "computed"].set_index("sample")
-    assert g.loc[1].max_index == pytest.approx(0.046, abs=5e-4)
-    assert g.loc[4].max_index == pytest.approx(0.718, abs=5e-4)
+    assert g.loc[1].max_index == pytest.approx(0.0443, abs=5e-4)
+    assert g.loc[4].max_index == pytest.approx(0.7532, abs=5e-4)
     assert g.loc[7].max_index == pytest.approx(0.066, abs=5e-4)
-    assert g.loc[8].max_index == pytest.approx(0.057, abs=5e-4)
-    assert g.loc[11].max_index == pytest.approx(0.928, abs=5e-4)
+    assert g.loc[8].max_index == pytest.approx(0.0943, abs=5e-4)
+    assert g.loc[11].max_index == pytest.approx(0.8252, abs=5e-4)
 
 
 def test_schist_exceeds_gneiss_at_the_same_angle(df):
@@ -90,5 +90,7 @@ def test_schist_exceeds_gneiss_at_the_same_angle(df):
 def test_summary_supports_the_wording(df):
     s = ds.summary(df)
     assert s["n_computed"] == 14 and s["n_blocked"] == 0
-    assert s["n_visibly_asymmetric"] == 9
+    # Re-locked at M = 48: the gneiss at 15 deg crossed the 0.10 visibility
+    # threshold, so ten of fourteen now exceed it rather than nine.
+    assert s["n_visibly_asymmetric"] == 10
     assert s["supports_asymmetric_description"] is True

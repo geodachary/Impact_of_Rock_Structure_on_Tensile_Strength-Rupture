@@ -190,7 +190,19 @@ def stage_derived_figures(smoke: bool = False) -> list[str]:
         if smoke:
             done.append(f"{name} (skipped in smoke mode)")
             continue
-        runpy.run_path(str(REPO / "scripts" / f"{name}.py"), run_name="__main__")
+        # Each generator ends with ``raise SystemExit(main())``, and running it
+        # under ``run_name="__main__"`` lets that SystemExit propagate. It did:
+        # the last generator in this list terminated reproduce_all itself, with
+        # status 0, so stage_checks and the COMPLETED line below have never
+        # executed and the script reported success without verifying anything.
+        # Catch it here and treat a non-zero status as the failure it is.
+        try:
+            runpy.run_path(str(REPO / "scripts" / f"{name}.py"),
+                           run_name="__main__")
+        except SystemExit as exc:
+            code = exc.code if isinstance(exc.code, int) else 0
+            if code:
+                raise RuntimeError(f"{name} exited with status {code}") from exc
         done.append(name)
         log(f"{name} completed")
     return done
@@ -210,6 +222,50 @@ def stage_checks(res: dict, figures: list[Path]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+def stage_sync_document_figures() -> int:
+    """Copy every generated figure the document cites into the document folder.
+
+    Most generators already write to both trees, but several do not, and the
+    ones that do not are the ones that go stale: 28 of the 44 generated
+    graphics the manuscript cites were up to 48 hours behind ``outputs/``
+    after a full re-run, so the compiled PDF showed pre-run figures while
+    every number in the text had been updated. Nothing warned, because LaTeX
+    resolves the filename and does not care how old it is.
+
+    Only files that exist in ``outputs/figures`` are touched. Photographs and
+    hand-drawn schematics live in the document folder alone and are inputs;
+    they are left untouched because there is nothing to copy over them.
+    """
+    import hashlib
+    import re
+    import shutil
+
+    tex = output_dirs.document_source()
+    if tex is None:
+        log("no document present; nothing to sync")
+        return 0
+
+    cited = set(re.findall(r"\\includegraphics\[[^\]]*\]\{([^}]+)\}",
+                           tex.read_text(encoding="utf-8")))
+    src_dir = REPO / output_dirs.FIGURE_DIR
+    dst_dir = tex.parent
+    digest = lambda q: hashlib.sha256(q.read_bytes()).hexdigest()
+
+    copied = 0
+    for name in sorted(cited):
+        stem = name if "." in name else name + ".pdf"
+        src, dst = src_dir / stem, dst_dir / stem
+        if not src.exists():
+            continue                      # an input, not a generated figure
+        if dst.exists() and digest(src) == digest(dst):
+            continue
+        shutil.copy2(src, dst)
+        copied += 1
+    log(f"document figures synchronised: {copied} copied, "
+        f"{len(cited)} cited by the manuscript")
+    return copied
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -238,6 +294,7 @@ def main(argv=None) -> int:
     figures = stage_figures(out, smoke=(args.mode == "smoke"))
     figures += stage_partitioning(out, smoke=(args.mode == "smoke"))
     stage_derived_figures(smoke=(args.mode == "smoke"))
+    stage_sync_document_figures()
     problems = stage_checks(res, figures)
 
     log("-" * 62)

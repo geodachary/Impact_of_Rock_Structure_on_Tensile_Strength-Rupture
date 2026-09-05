@@ -151,8 +151,8 @@ def angle_standard_error_deg(x, y):
     number of points: halving the span costs as much as quartering the sample.
 
     This is what makes a windowed fit dangerous on a sparsely digitized trace.
-    Restricting to the central disc keeps roughly half the points and a third
-    of the baseline, so it can only inflate the variance. The measure is
+    Restricting to the central disc keeps roughly half the points and half
+    the baseline, so it can only inflate the variance. The measure is
     reported alongside every orientation as :data:`ANGLE_SE_ADVISORY_DEG`.
     """
     x, y = np.asarray(x, float), np.asarray(y, float)
@@ -194,6 +194,37 @@ def orientation_central(x, y, frac=DEFAULT_CENTRAL_FRAC, min_pts=3):
     return a, c, int(np.sum(m)), True
 
 
+
+#: The predicted path is fitted inside this fraction of the disc radius.
+#:
+#: Every field diagnostic in this work is taken over ``fabric_tractions.CORE_FRAC``
+#: = 0.85 R, "the disc interior away from the platen contacts", because the
+#: contact zone is where the orthotropic solution is least trustworthy. The
+#: stepper was never given the same restriction, and it walks wherever its
+#: guidance field points. On thirteen specimens that costs nothing: 15 to 21% of
+#: each path lies outside 0.85 R and the fitted orientation moves by under three
+#: degrees. On the psammitic schist at 15 degrees it is decisive. There the
+#: foliation is near-horizontal, the compliance anisotropy is the largest in the
+#: set and the spacing the finest, so beneath the platens, where the tensile
+#: drive is weak, the fabric guidance wins and the tip runs 12.5 mm sideways
+#: along the foliation before returning. Two such excursions make the path
+#: 99.5 mm long inside a 51 mm disc, put 47% of it in the contact zone, and pull
+#: the fitted orientation to 76.8 degrees against 85 to 92 for every other
+#: specimen.
+#:
+#: Restricting the fit to the same interior the rest of the paper uses is not a
+#: repair of that path, which is still what the stepper produced; it is a
+#: statement that the model's output is read only where the model is posed.
+#: The observed traces are not restricted: they are data, and Section 4.9 sets
+#: out why discarding digitized points inflates the error.
+PREDICTED_CORE_FRAC = 0.85
+
+
+def core_mask_radial(x, y, R, frac=PREDICTED_CORE_FRAC):
+    """Points inside ``frac * R`` of the disc centre."""
+    return np.hypot(np.asarray(x, float), np.asarray(y, float)) <= float(frac) * float(R)
+
+
 def orientation_pair(ox, oy, px, py, frac=DEFAULT_CENTRAL_FRAC, min_pts=3,
                      domain="full_primary_segment"):
     """Fit both traces of one specimen over the whole primary segment.
@@ -210,8 +241,8 @@ def orientation_pair(ox, oy, px, py, frac=DEFAULT_CENTRAL_FRAC, min_pts=3,
     points. It fails in two different ways, and between them they accounted for
     both of the large orientation errors previously reported.
 
-    * **Imprecision.** The window discards roughly half the points and two
-      thirds of the baseline, and the standard error of a fitted angle goes as
+    * **Imprecision.** The window discards roughly half the points and half
+      the baseline, and the standard error of a fitted angle goes as
       ``sigma_perp / (sqrt(n) * s_parallel)``. On a sparsely digitized trace
       that is ruinous: specimen 12 keeps 8 of 15 points inside the window and
       its orientation carries a standard error of 4.0 deg.
@@ -335,6 +366,16 @@ def compare_specimen(sample_id, frac=DEFAULT_CENTRAL_FRAC, root=None, seed=20260
 
     o_ang, o_col, p_ang, p_col, domain, o_se, p_se = orientation_pair(
         oxp, oyp, pxp, pyp, frac, domain=domain)
+
+    # Read the predicted path only inside the interior the field diagnostics
+    # use; see PREDICTED_CORE_FRAC.
+    _pcore = core_mask_radial(pxp, pyp, RADIUS_M)
+    predicted_frac_outside_core = float(1.0 - _pcore.mean())
+    if int(_pcore.sum()) >= 3:
+        p_ang_core, _ = fit_orientation_deg(np.asarray(pxp)[_pcore],
+                                            np.asarray(pyp)[_pcore])
+        if np.isfinite(p_ang_core):
+            p_ang = float(p_ang_core)
     o_sd = bootstrap_orientation_sd(
         oxp, oyp, frac, seed=seed, use_central=(domain == "central_window"))
 
@@ -367,6 +408,8 @@ def compare_specimen(sample_id, frac=DEFAULT_CENTRAL_FRAC, root=None, seed=20260
         observed_central_fallback_used=(domain == "full"),
         predicted_central_fallback_used=(domain == "full"),
         observed_n_outside_disc=o["n_outside_disc"],
+        predicted_frac_outside_core=predicted_frac_outside_core,
+        predicted_core_frac=PREDICTED_CORE_FRAC,
         supp_symmetric_mean_nn_distance_m=sm["symmetric_mean_nn_m"],
         supp_hausdorff_distance_m=sm["hausdorff_m"],
         central_fraction_used=frac, status="computed", reason="",
@@ -414,3 +457,105 @@ def null_model_statistics(rows, null_orientation_deg=None):
     return dict(n=int(len(e)), null_orientation_deg=null, mae_deg=float(e.mean()),
                 rmse_deg=float(np.sqrt((e ** 2).mean())),
                 n_within_5=int((e <= 5).sum()), n_within_10=int((e <= 10).sum()))
+
+#: A digitized segment shorter than this fraction of the total trace length is
+#: a fragment rather than a crack, and is excluded from best-segment matching.
+#: The model-minus-null gap is unchanged from 0 to 15% and shifts by 0.2 deg at
+#: 30%, so the conclusion does not rest on this value.
+MIN_SEGMENT_FRAC = 0.15
+
+
+def observed_segment_orientations(sample_id, root=None,
+                                  min_frac=MIN_SEGMENT_FRAC):
+    """Orientation and length of every digitized crack in one specimen.
+
+    The observed traces are not single cracks. Every specimen carries between
+    two and four connected segments, while the stepper produces one path, so a
+    comparison against the longest segment alone discards the rest: on this
+    dataset it sets aside 44% of the digitized length on average, and the
+    longest segment is a minority of the trace in six of the fourteen.
+
+    Returns a list of ``(orientation_deg, length_m)``, longest first, with
+    fragments below ``min_frac`` of the total length dropped. If that would
+    empty the list the longest segment is kept, so the function always returns
+    at least one candidate.
+    """
+    from . import lithology as _lith
+    obs = load_observed_trace(_lith.observed_trace_path(sample_id, root))
+    out = []
+    for sx, sy in split_segments(obs["x"], obs["y"]):
+        if len(sx) < 3:
+            continue
+        ang, _ = fit_orientation_deg(sx, sy)
+        if np.isfinite(ang):
+            out.append((float(ang), float(arclength(sx, sy))))
+    if not out:
+        return []
+    total = sum(L for _, L in out)
+    kept = [(a, L) for a, L in out if L / total >= float(min_frac)]
+    if not kept:
+        kept = [max(out, key=lambda t: t[1])]
+    return sorted(kept, key=lambda t: -t[1])
+
+
+def _best_segment_error_deg(orientation_deg, segments):
+    """Smallest axial error between one orientation and any crack.
+
+    Private. Scoring a single predictor this way is not interpretable on its
+    own, so the public entry points always return a paired null; see
+    :func:`best_segment_error_pair`.
+    """
+    if not segments or not np.isfinite(orientation_deg):
+        return float("nan")
+    return float(min(axial_angular_error_deg(float(orientation_deg), a)
+                     for a, _ in segments))
+
+
+def best_segment_error_pair(predicted_deg, segments, null_orientation_deg=None):
+    """Best-segment error of the model **and** of the null, together.
+
+    The multi-crack generalisation of the primary-segment error: the prediction
+    is scored against whichever digitized crack it matches best. That is the
+    right comparison when the specimen broke more than once, and it is the form
+    to use on other datasets.
+
+    It returns a pair, and there is no public way to obtain the model half
+    alone, because the single number is not interpretable. Matching the model
+    to any of several cracks while holding the null to one manufactures skill
+    out of the segment count: on this dataset that mismatch alone turns a
+    0.015 degree dead heat into an apparent 0.79 degree win for the framework,
+    the largest margin anywhere in the comparison and entirely an artefact.
+    Returning both halves together is what makes that mistake require
+    deliberate effort rather than an oversight.
+
+    Returns ``(model_error_deg, null_error_deg)``.
+    """
+    from .conventions import LOADING_AXIS_DEG
+    null = (LOADING_AXIS_DEG if null_orientation_deg is None
+            else float(null_orientation_deg))
+    return (_best_segment_error_deg(predicted_deg, segments),
+            _best_segment_error_deg(null, segments))
+
+
+def best_segment_statistics(rows=None, root=None, min_frac=MIN_SEGMENT_FRAC,
+                            null_orientation_deg=None):
+    """Model and null error under best-segment matching, scored identically."""
+    from .conventions import LOADING_AXIS_DEG
+    null = LOADING_AXIS_DEG if null_orientation_deg is None else float(null_orientation_deg)
+    rows = compare_all(root=root) if rows is None else rows
+    model, nulls = [], []
+    for r in rows:
+        if r.get("status") != "computed":
+            continue
+        segs = observed_segment_orientations(r["sample"], root, min_frac)
+        m_err, n_err = best_segment_error_pair(
+            r["predicted_orientation_deg"], segs, null)
+        model.append(m_err)
+        nulls.append(n_err)
+    m = np.array(model, float); n = np.array(nulls, float)
+    m = m[np.isfinite(m)]; n = n[np.isfinite(n)]
+    return dict(n=int(len(m)), min_segment_frac=float(min_frac),
+                model_mae_deg=float(m.mean()), null_mae_deg=float(n.mean()),
+                model_minus_null_deg=float(m.mean() - n.mean()),
+                model_n_within_5=int((m <= 5).sum()),
+                model_n_within_10=int((m <= 10).sum()))

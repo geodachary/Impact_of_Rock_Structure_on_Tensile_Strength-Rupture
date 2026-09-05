@@ -62,7 +62,28 @@ def counts() -> pd.DataFrame:
 
 
 def class_fractions() -> pd.DataFrame:
-    """Area fraction of each of the four mechanism-locus classes, per specimen."""
+    """Area fraction of each of the four mechanism-locus classes, per specimen.
+
+    Taken over the same disc interior as every other field statistic here,
+    ``fabric_tractions.CORE_FRAC`` = 0.85 R, "clear of the platen contacts
+    where the stress concentration is a boundary-condition artefact rather than
+    a property of the specimen".
+
+    These fractions were previously taken over the mask stored in the field
+    archive, ``r <= 0.985 R``, which trims only the outermost ring of grid
+    pixels and is an anti-aliasing guard rather than a physical region. Panel
+    (b) of the same figure already used 0.85 R, so the two halves of one
+    figure described different regions.
+
+    A second argument stood here and no longer holds. Under the uncorrected
+    cohesion every matrix tensile point in the dataset lay between 0.97 R and
+    the rim, where the boundary-traction fit carries its largest residual, so
+    reporting the class attributed a fit artefact to the material. The
+    measured cohesion withdrew that: MT is now an interior class, 1910 points
+    inside 0.85 R, reaching the disc center. The reporting region is still
+    0.85 R for the reason above, not because the class would otherwise be
+    empty.
+    """
     import importlib.util as ilu
     spec = ilu.spec_from_file_location("ra", REPO / "scripts/reproduce_all.py")
     ra = ilu.module_from_spec(spec); spec.loader.exec_module(ra)
@@ -72,7 +93,9 @@ def class_fractions() -> pd.DataFrame:
         r = ra._classify_panel(sid, strengths)
         if r.get("status") != "computed":
             continue
-        mc = r["mode_code"][r["mask"]]
+        radius = np.hypot(np.asarray(r["X"]), np.asarray(r["Y"]))
+        core = r["mask"] & (radius <= ft.CORE_FRAC * float(np.nanmax(radius[r["mask"]])))
+        mc = r["mode_code"][core]
         rows.append(dict(rock=r["lithology"], angle_deg=float(r["angle_deg"]),
                          **{c: float(np.mean(mc == fc.CLASS_CODES[c]))
                             for c in fc.CLASS_ORDER},

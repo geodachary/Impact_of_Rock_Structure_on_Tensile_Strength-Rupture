@@ -250,6 +250,19 @@ def boundary_segments_cut_cells(X, Y, mask, R, h):
     return Iseg, Jseg, xb, yb, nbx, nby, Lseg
 
 
+
+#: Physics switches read by :func:`compute_uv_for_sample`. ``main()`` assigns
+#: these as module globals, which is fine while the caller is this module's own
+#: ``main``. It is not fine for ``direction_circles``, which calls the solver
+#: directly when its cache misses: the name was then undefined and the run died
+#: rather than recomputing. Defining them here, with the values ``main`` uses,
+#: makes the solver callable in any order. ``main`` still overwrites them, so
+#: nothing it does changes.
+enable_heterogeneity = True
+enable_joint_closure = True
+use_hertz_contact_width = True
+
+
 def compute_uv_for_sample(
     diameter_m, thickness_m, E1_in, E2_in, nu12, alpha_in_rad, G_in=np.nan,
     *,

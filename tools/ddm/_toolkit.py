@@ -106,6 +106,16 @@ bd = None
 # canonical spelling and the historical "psammatic" one are accepted, because
 # the table is regenerated from the per-replicate measurements and the spelling
 # has changed between regenerations.
+#
+# Adopted, not measured. E2 = E1 / ratio; the replicate table carries E1, nu12
+# and G12 only, and no combination of the measured quantities reproduces these
+# values (test_e2_provenance pins that). Table 5 of the manuscript reports them
+# as adopted; add a citation there and here if a source is found. The ratio sets
+# the compliance contrast that Section 5.3 credits with reproducing the gneiss's
+# weaker localization, so its status matters.
+#
+# Eight analysis modules assign a shadow copy of this dict inside main(). None
+# is read: every caller goes through get_anisotropy_ratio below.
 ROCK_ANISO_RATIO = {
     "augen gneiss": 2.037,
     "psammitic schist": 3.763,
@@ -244,7 +254,7 @@ def compute_sample_stresses(row_dict, args):
         )
     else:
         fit = fit_orthotropic_airy_disk(
-            E1, E2, nu12, G12, R=R, t=t, P=P, alpha=alpha_const, M=24,
+            E1, E2, nu12, G12, R=R, t=t, P=P, alpha=alpha_const,
             Nbd=int(args.airy_Nbd_base),
             beta_deg=float(args.platen_half_angle_deg),
             smooth_deg=float(args.platen_smooth_deg),

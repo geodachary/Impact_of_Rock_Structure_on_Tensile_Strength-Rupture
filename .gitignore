@@ -70,8 +70,9 @@ Tensile_*.pdf
 #                                        reproducible without the multi-hour
 #                                        notebook run
 #   outputs/fields/smoke_*.csv           step-wise crack diagnostics
-#   selected_all_samples.xls             original spreadsheet, retained as the
-#                                        source format alongside its CSV export
+#   selected_all_samples.xlsx            the spreadsheet, alongside its CSV
+#                                        export; the older .xls was superseded
+#                                        by it and removed
 # No data file is excluded.
 
 # Executed notebook copies are large (33 MB) and regenerable
@@ -92,5 +93,7 @@ manuscript/
 .tmp.driveupload/
 .backup_0809/
 
-# define speecific ignore rules for particular files or directories
-revision_log.csv
+# revision_log.csv is tracked and published with the release, so it is not
+# listed here. It was, which did nothing: git ignores only untracked paths, so
+# the rule was a no-op that read as an intention to exclude a file the
+# repository actually ships.

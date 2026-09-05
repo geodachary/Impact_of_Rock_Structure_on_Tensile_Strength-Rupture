@@ -107,7 +107,16 @@ def main():
         e = [elz.component_shape(f)["elongation"] for f in group]
         print(f"  {rock:17s} corridor at {n_corr}/7 orientations, "
               f"elongation {min(e):.2f}-{max(e):.2f}")
-    print("\n  written: fig_S_energy_localization_<rock>.pdf")
+    # The per-specimen connectivity and elongation the manuscript quotes. This
+    # had no writer, so the CSV aged while the figure it accompanies stayed
+    # current; anyone checking the corridor claims against outputs/tables/ would
+    # have been reading a different run.
+    output_dirs.tables()
+    tbl = elz.localization_table()
+    tbl.to_csv(REPO / output_dirs.TABLE_DIR / "energy_localization.csv", index=False)
+
+    print("\n  written: fig_S_energy_localization_<rock>.pdf,")
+    print("           outputs/tables/energy_localization.csv")
     return 0
 
 

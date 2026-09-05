@@ -2,7 +2,7 @@
 """Supplementary evidence for the strength-envelope parameters.
 
 Shows how the two fitted quantities are constrained. Each panel scans one
-parameter while re-optimising the other, so the width of the curve at
+parameter while re-optimizing the other, so the width of the curve at
 Delta chi-square = 3.84 is the 95% interval reported in the text. A parameter
 whose scan has no interior minimum is not determined by the data, and this
 figure is what makes that visible rather than asserted.
@@ -33,7 +33,7 @@ COLOR = {"Augen gneiss": "#4C72B0", "Psammitic schist": "#DD4B39"}
 
 def latex_table(rows) -> str:
     body = "\n".join(
-        f"{r['rock']} & {r['sigma0']:.3f} & {r['sigma90']:.3f} & "
+        f"{r['rock']} & {r['sigma0']:.2f} & {r['sigma90']:.2f} & "
         f"{r['eta']:.3f} & [{r['eta_lo']:.2f}, {r['eta_hi']:.2f}] & "
         f"{r['beta_peak_deg']:.1f} & [{r['beta_lo']:.0f}, {r['beta_hi']:.0f}] & "
         f"{r['max_weakening_pct']:.1f} & {r['R2']:.3f} & {r['chi2_red']:.2f} \\\\"
@@ -46,7 +46,7 @@ def latex_table(rows) -> str:
 $\sigma_0$ and $\sigma_{{90}}$ are measured, not fitted, so only the depth
 $\eta$ and the position $\beta_p$ of the weakening are estimated. Intervals are
 95\% profile-likelihood ranges obtained by scanning one parameter while
-re-optimising the other. The envelope is additionally required not to predict a
+re-optimizing the other. The envelope is additionally required not to predict a
 strength below the lowest specimen broken in that lithology.}}}}
 \label{{tab:ati_envelope}}
 \begin{{tabular}}{{l r r r c r c r r r}}
@@ -69,7 +69,7 @@ def main():
     fig, axes = plt.subplots(1, 2, figsize=(7.4, 3.4))
 
     rows = []
-    for rock in ("Augen gneiss", "Psammitic schist"):
+    for rock in ("Psammitic schist", "Augen gneiss"):
         sub = d[d.Rock_type == rock]
         r = A.fit(sub)
         e_lo, e_hi, eg, ev = A.profile_interval(r, "eta", 0.0, 6.0, 0.05)
@@ -94,9 +94,12 @@ def main():
         for s in ax.spines.values():
             s.set_linewidth(1.5)
     axes[0].set_ylabel(r"$\Delta\chi^2$ from the optimum")
-    axes[1].legend(frameon=True, fontsize=LEGEND_FS, loc="upper left")
-
-    fig.tight_layout()
+    # One shared legend below the figure. Inside the right panel it sat over
+    # the profile it was labelling; both panels carry the same two curves.
+    handles, labels = axes[1].get_legend_handles_labels()
+    fig.tight_layout(rect=(0, 0.08, 1, 1))
+    fig.legend(handles, labels, loc="lower center", ncol=len(labels) or 2,
+               frameon=False, fontsize=LEGEND_FS, bbox_to_anchor=(0.5, -0.01))
     out = REPO / "manuscript/fig_S_ati_profiles"
     for ext in ("pdf", "png"):
         fig.savefig(f"{out}.{ext}", dpi=300, bbox_inches="tight")

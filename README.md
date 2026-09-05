@@ -1,4 +1,4 @@
-# Impact of Rock Anisotropy on Tensile Strength and Modes of Rupture
+# Impact of rock anisotropy on tensile strength and modes of rupture
 
 Code and data supporting the study of anisotropic tensile fracture in foliated
 metamorphic rocks.
@@ -134,14 +134,14 @@ Tensile_general_plots.ipynb       cross-lithology models and comparisons
 
 crack_digitized_data/      raw: digitized laboratory fracture traces
 tensile_samples_data.csv   raw: Brazilian-test strengths, cohesion, friction angle
-selected_all_samples.*     raw: the original spreadsheet and its CSV export
+selected_all_samples.*     raw: the replicate measurements, spreadsheet and CSV
+data_mean.ipynb            averages the replicates into tensile_samples_data.xlsx,
+                           from which the .csv above is exported
 
 outputs/                   everything generated, sorted by what it is
   figures/                 every figure, in every format it is saved in
   tables/                  every machine-readable result
   fields/                  cached solver state that later steps read back
-
-archive/                   historical and exploratory material, excluded from release
 ```
 
 There are no loose Python modules at the repository root: all project code lives
@@ -339,10 +339,25 @@ The cached field archives are included on purpose: they are what allow
 `scripts/reproduce_all.py` to regenerate the validation tables and all four
 composite figures **without** the multi-hour notebook run.
 
-`selected_all_samples.xls` is retained as the original spreadsheet alongside its
-CSV export. No data file is excluded.
+`selected_all_samples.xlsx` is retained as the spreadsheet alongside its CSV
+export; the older `.xls` it superseded has been removed. No data file is
+excluded.
 
 ## 15. License and citation
 
-See `LICENSE`. Citation details and a persistent identifier will be added on
-acceptance of the associated manuscript.
+See `LICENSE`. Machine-readable citation metadata is in `CITATION.cff`, which
+GitHub and Zenodo both read; "Cite this repository" on the GitHub sidebar
+renders it as BibTeX or APA.
+
+Three fields are deliberately absent because they do not exist yet, and an
+invented one is worse than a missing one:
+
+| Field | Add when |
+| --- | --- |
+| `doi:` and `identifiers:` | a Zenodo release is minted |
+| `orcid:` under each author | you want authors disambiguated |
+| `date-released:` | version 1.0.0 is tagged |
+
+The `preferred-citation` block carries the manuscript as `status: submitted`.
+On acceptance, change that to the journal, volume, pages and year, and add the
+paper DOI.

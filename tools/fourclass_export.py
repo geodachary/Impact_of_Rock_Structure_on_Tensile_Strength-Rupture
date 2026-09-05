@@ -121,9 +121,19 @@ def write_classifier_mapping_csv(records, path,
 
 
 def plot_fourclass_maps(records, out_pdf, out_png,
-                        lith_title="Augen gneiss", rmax_frac=0.985,
+                        lith_title=None, rmax_frac=0.985,
                         point_size=15, ncols=2):
-    """Spatial WT/WS/MT/MS/no-failure maps, one panel per specimen."""
+    """Spatial WT/WS/MT/MS/no-failure maps, one panel per specimen.
+
+    ``lith_title`` names the rock in the figure title. It defaulted to a
+    literal "Augen gneiss" and no caller overrode it, so the psammitic schist
+    map was published under the other rock's name while its filename and every
+    panel title said schist. Taking the name from the records removes the
+    second source of truth; passing a string explicitly is still allowed.
+    """
+    if lith_title is None:
+        names = {str(r["rock"]) for r in records}
+        lith_title = names.pop() if len(names) == 1 else "Brazilian disc"
     n = len(records)
     nrows = int(np.ceil((n + 1) / ncols))  # +1 slot for the legend panel
     fig, axs = plt.subplots(nrows, ncols, figsize=(4.3 * ncols + 0.6, 4.3 * nrows),

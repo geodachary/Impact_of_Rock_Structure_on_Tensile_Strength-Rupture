@@ -1,0 +1,61 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software or the data it contains, please cite it using the
+  metadata below. Once the associated manuscript is accepted, cite the paper
+  instead and add its DOI here.
+title: >-
+  Impact of rock anisotropy on tensile strength and modes of rupture:
+  analysis code and data
+abstract: >-
+  Orthotropic stress analysis and four-mechanism failure classification for
+  Brazilian tensile tests on foliated rocks. The workflow solves the
+  Lekhnitskii Airy-series stress field for a transversely isotropic disc,
+  classifies failure pointwise into weak-plane tensile, weak-plane shear,
+  matrix tensile and matrix shear, traces diagnostic crack trajectories, and
+  partitions strain energy across those classes. It covers fourteen specimens,
+  seven fabric orientations in each of an augen gneiss and a psammitic schist,
+  and reproduces every table and figure of the associated manuscript from the
+  raw measurements.
+type: software
+version: 1.0.0
+license: MIT
+repository-code: >-
+  https://github.com/geodachary/Impact_of_Rock_Structure_on_Tensile_Strength-Rupture
+authors:
+  - family-names: Acharya
+    given-names: Durga
+    email: geodacharya@gmail.com
+    affiliation: >-
+      Department of Earth and Atmospheric Sciences, Indiana University
+      Bloomington, Bloomington, IN 47405, USA
+  - family-names: Elsworth
+    given-names: Derek
+    email: elsworth@psu.edu
+    affiliation: >-
+      Department of Energy and Mineral Engineering, EMS Energy Institute and
+      G3 Center, Pennsylvania State University, University Park, PA 16802, USA
+keywords:
+  - rock mechanics
+  - Brazilian test
+  - anisotropy
+  - foliation
+  - fracture
+  - transverse isotropy
+  - failure classification
+preferred-citation:
+  type: article
+  status: submitted
+  title: Impact of rock anisotropy on tensile strength and modes of rupture
+  authors:
+    - family-names: Acharya
+      given-names: Durga
+      email: geodacharya@gmail.com
+      affiliation: >-
+        Department of Earth and Atmospheric Sciences, Indiana University
+        Bloomington, Bloomington, IN 47405, USA
+    - family-names: Elsworth
+      given-names: Derek
+      email: elsworth@psu.edu
+      affiliation: >-
+        Department of Energy and Mineral Engineering, EMS Energy Institute and
+        G3 Center, Pennsylvania State University, University Park, PA 16802, USA

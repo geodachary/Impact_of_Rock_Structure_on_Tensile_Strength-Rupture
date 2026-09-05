@@ -57,11 +57,43 @@ def test_principal_stress_carries_no_spacing_signature(rock):
 
 @needs_fields
 @pytest.mark.parametrize("rock", list(SPACING))
-def test_tensile_utility_carries_the_spacing(rock):
+def test_weak_plane_weight_carries_the_spacing(rock):
+    """The spacing enters the resistance through the proximity weight.
+
+    This previously read ``Rt_eff`` at 0 degrees and expected 2R/s maxima. It
+    got them, but only because the stress field was being sign-flipped before
+    classification: the flip turned the platen compression clamping the
+    horizontal foliation into apparent tension, so the periodic weight
+    modulated a weak-plane tensile term that should have been identically
+    zero. With the convention corrected, ``Rt_eff`` at 0 degrees is the matrix
+    term sigma_1 / T_m, which is smooth, and one maximum is the right answer.
+
+    The claim itself is unchanged and is checked here on the quantity that
+    actually carries it.
+    """
     f = _zero_degree_fields().get(rock)
     if f is None:
         pytest.skip("no 0 degree field for this lithology")
     expected = 2.0 * float(f["R_m"]) / SPACING[rock]
-    n = _n_maxima(_profile(f, "Rt_eff"))
+    n = _n_maxima(_profile(f, "wp_weight"))
     assert abs(n - expected) <= max(2.0, 0.1 * expected), (
-        f"{rock}: R_t shows {n} maxima against {expected:.0f} expected from 2R/s")
+        f"{rock}: weak-plane weight shows {n} maxima against {expected:.0f} "
+        "expected from 2R/s")
+
+
+@needs_fields
+@pytest.mark.parametrize("rock", list(SPACING))
+def test_clamped_foliation_carries_no_tensile_utility(rock):
+    """At 0 degrees the planes are shut, so the weak-plane tensile term is flat.
+
+    This is the other half of the correction above: a periodic signature in
+    the tensile utility at 0 degrees would mean the clamping had been lost.
+    """
+    f = _zero_degree_fields().get(rock)
+    if f is None:
+        pytest.skip("no 0 degree field for this lithology")
+    n = _n_maxima(_profile(f, "Rt_eff"))
+    assert n <= 2, (
+        f"{rock}: R_t shows {n} maxima at 0 degrees. The foliation is "
+        "clamped there, so the tensile utility is the smooth matrix term; "
+        "periodic content means the sign convention has been lost again.")

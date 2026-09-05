@@ -32,9 +32,11 @@ TABLE_DIR = REPO / "manuscript" / "tables"
 
 #: In the order they appear in the supplement.
 TABLES = [
+    "table_S_strength_by_angle",
     "table_S_ati_envelope",
     "table_S_mirror_symmetry",
     "table_S_fig20_GGc",
+    "table_S_fig20_bands",
     "table_S_fabric_tractions",
     "table_S_eshelby_bound",
     "table_S_energy_localization",

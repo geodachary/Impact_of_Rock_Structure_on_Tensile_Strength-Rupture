@@ -63,10 +63,13 @@ def angle_diff_periodic(a, b):
 
 
 def anisotropic_tensile_strength(base_tensile_strength_mpa, anisotropic_angle, orientation, spacing, radius):
-    dphi = angle_diff_periodic(anisotropic_angle, orientation)
+    # Delta measured from the foliation normal; see tools/analysis/
+    # mohr_coulomb_local.py for the same convention.
+    normal = float(anisotropic_angle) + np.pi / 2.0
+    dphi = angle_diff_periodic(normal, orientation)
     reduction = np.cos(dphi) ** 2
-    distance_to_plane = np.abs(radius * np.sin(dphi)) % spacing
-    spacing_effect = np.cos(np.pi * distance_to_plane / spacing) ** 2
+    distance_to_plane = np.abs(radius * np.cos(dphi)) % spacing
+    spacing_effect = np.sin(np.pi * distance_to_plane / spacing) ** 2
     return base_tensile_strength_mpa * reduction * spacing_effect
 
 

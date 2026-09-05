@@ -58,8 +58,13 @@ def main():
              "delta_failure_vs_heterogeneity")):
         fig, ax = plt.subplots(figsize=(3.6, 3.2))
         panel(ax, df, xcol, xlabel)
-        ax.legend(frameon=True)
-        fig.tight_layout()
+        # Below the axes rather than inside it: these panels are 3.6 inches
+        # wide and the curves reach the corners, so an in-axes legend sat on
+        # the data at every placement matplotlib chose.
+        handles, labels = ax.get_legend_handles_labels()
+        fig.tight_layout(rect=(0, 0.12, 1, 1))
+        fig.legend(handles, labels, loc="lower center", ncol=2, frameon=False,
+                   bbox_to_anchor=(0.5, -0.01))
         for d in OUT_DIRS:
             fig.savefig(d / f"{stem}.pdf", dpi=300, bbox_inches="tight")
         plt.close(fig)

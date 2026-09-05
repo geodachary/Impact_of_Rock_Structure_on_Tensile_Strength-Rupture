@@ -171,6 +171,18 @@ def main():
     het = ft.heterogeneity_table()
     het.to_csv(REPO / output_dirs.TABLE_DIR / "principal_heterogeneity.csv", index=False)
 
+    # These two are read back by scripts/patch_stress_field_text.py to build the
+    # captions. They had no writer, so they aged while their siblings above were
+    # refreshed on every run, and the captions were being built partly from
+    # current tables and partly from stale ones. Writing them here keeps the
+    # whole set in step.
+    grd = ft.orientation_gradient_table()
+    grd.to_csv(REPO / output_dirs.TABLE_DIR / "orientation_gradient.csv", index=False)
+
+    from tools import displacement_corridor as dc
+    cor = dc.corridor_table()
+    cor.to_csv(REPO / output_dirs.TABLE_DIR / "displacement_corridor.csv", index=False)
+
     print("\n  foliation-resolved tractions (disk core):")
     for rock, g in tab.groupby("rock"):
         g = g.sort_values("angle_deg")
@@ -182,7 +194,7 @@ def main():
     print("\n  principal-axis rotation vs the 0 degree specimen (median, deg):")
     for rock, g in rot.groupby("rock"):
         print(f"    {rock}: max {g.rotation_median_deg.max():.2f}")
-    print("\n  written: figures + outputs/tables/fabric_tractions.csv, outputs/tables/principal_rotation.csv")
+    print("\n  written: figures + fabric_tractions, principal_rotation,\n           principal_heterogeneity, orientation_gradient,\n           displacement_corridor (outputs/tables/*.csv)")
     return 0
 
 

@@ -75,8 +75,12 @@ def main():
         R = float(f["R_m"])
         s = SPACING[rock]
         y, s1 = profile(f, "s1")
-        _, rt = profile(f, "Rt_eff")
-        n_rt = count_extrema(rt)
+        # The spacing is written into the proximity weight, not into R_t: at
+        # 0 degrees the foliation is clamped and R_t is the smooth matrix
+        # term, so plotting it here annotated the figure with a band count
+        # that contradicted the text on the facing page.
+        _, wt = profile(f, "wp_weight")
+        n_rt = count_extrema(wt)
         expected = 2.0 * R / s
 
         fig, ax = plt.subplots(2, 1, figsize=(6.2, 5.6), sharex=True)
@@ -88,8 +92,8 @@ def main():
                    transform=ax[0].transAxes, fontsize=ANNOT_FS, va="bottom",
                    bbox=dict(boxstyle="round,pad=0.35", fc="white", ec="0.7"))
 
-        ax[1].plot(y, rt, color=COLOR[rock], lw=1.4)
-        ax[1].set_ylabel(r"Tensile utility $R_t$")
+        ax[1].plot(y, wt, color=COLOR[rock], lw=1.4)
+        ax[1].set_ylabel(r"Weak-plane proximity weight $w$")
         ax[1].set_xlabel("Position along loading diameter (m)")
         ax[1].text(0.02, 0.92,
                    f"{n_rt} maxima; $2R/s$ = {expected:.0f}\n"
@@ -109,7 +113,7 @@ def main():
 
         print(f"  {rock:17s} sigma_1 maxima {count_extrema(s1):2d} "
               f"(range {s1.min():.2f} to {s1.max():.2f} MPa);  "
-              f"R_t maxima {n_rt:2d} against 2R/s = {expected:.0f}")
+              f"w maxima {n_rt:2d} against 2R/s = {expected:.0f}")
 
     print("\n  written: <rock>_stress_distribution_graph.pdf")
     return 0

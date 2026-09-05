@@ -161,23 +161,68 @@ def bilinear_sample_line_angle(psi_img, X, Y, x, y, fill=np.nan):
     return float(wrap_pi_half_scalar(0.5 * np.angle(z)))
 
 
-def extend_to_circle(p0, p1, R):
+#: Longest terminal segment, as a fraction of the disc radius, that may be
+#: added to carry a path out to the rim. The stepper is trimmed back to the
+#: furthest radius the tip actually reached, which is not always the boundary,
+#: and a straight line drawn from there to the rim is invented geometry rather
+#: than model output: on the affected specimens it reached 31 times the step
+#: length and swung the endpoint several millimetres off the path. Two step
+#: lengths (``ds_frac`` is 0.010) closes the genuine sub-step gap and nothing
+#: more.
+MAX_RIM_EXTENSION_FRAC = 0.02
+
+#: A candidate may not carry the tip inward by more than this fraction of the
+#: step. ``crack_path_suite`` has always had this guard and reaches the rim on
+#: every specimen; this module, which writes every published trace, did not.
+#: Without it the energy scan can select inward candidates, the path wanders
+#: instead of advancing, and the stall counter below then truncates it at the
+#: furthest radius reached: 0.78R on the augen gneiss at 0 degrees, against a
+#: rim the crack visibly reaches in the laboratory. Section 3.7 of the
+#: manuscript and its parameter table have described this guard all along.
+RETREAT_TOL_FRAC = 0.25
+
+#: Diagnostic hook. When set to a list, the mirror controller appends one
+#: record per outer iteration: (step, mode, tip radius, stall count).
+STEP_TRACE = None
+
+
+def extend_to_circle(p0, p1, R, max_extend=None):
+    """Carry the segment ``p0``-``p1`` out to the rim, or leave ``p1`` alone.
+
+    ``max_extend`` bounds how far the endpoint may travel. Beyond it the point
+    is returned unchanged, so a path that stopped advancing inside the disc is
+    drawn stopping inside the disc instead of being joined to the boundary by a
+    segment the model never produced. ``None`` restores the old uncapped
+    behaviour and is kept only for callers that genuinely want a ray-circle
+    intersection.
+    """
     x0, y0 = float(p0[0]), float(p0[1])
     x1, y1 = float(p1[0]), float(p1[1])
-    vx, vy = x1 - x0, y1 - y0
-    if vx * vx + vy * vy < 1e-20:
-        rr = np.hypot(x1, y1) + 1e-30
+    r1 = float(np.hypot(x1, y1))
+    cap = np.inf if max_extend is None else float(max_extend)
+
+    def _radial():
+        # No usable direction: the only defensible extension is outward along
+        # the radius, and it is still subject to the cap.
+        if (R - r1) > cap:
+            return (x1, y1)
+        rr = r1 + 1e-30
         return (R * x1 / rr, R * y1 / rr)
+
+    vx, vy = x1 - x0, y1 - y0
     A = vx * vx + vy * vy
+    if A < 1e-20:
+        return _radial()
     B = 2.0 * (x1 * vx + y1 * vy)
     C = x1 * x1 + y1 * y1 - R * R
     disc = B * B - 4 * A * C
     if disc < 0:
-        rr = np.hypot(x1, y1) + 1e-30
-        return (R * x1 / rr, R * y1 / rr)
+        return _radial()
     t1 = (-B + np.sqrt(disc)) / (2 * A)
     t2 = (-B - np.sqrt(disc)) / (2 * A)
     t = max(t1, t2)
+    if t * np.sqrt(A) > cap:
+        return (x1, y1)
     return (float(x1 + t * vx), float(y1 + t * vy))
 
 
@@ -280,9 +325,11 @@ def _arc_median_collapse(xs, ys, R, nbins=260, smooth_win=13):
     y2 = y_bin + dt * v[1]
 
     if len(x2) >= 2 and np.hypot(x2[0], y2[0]) < 0.98 * R:
-        x2[0], y2[0] = extend_to_circle((x2[1], y2[1]), (x2[0], y2[0]), R)
+        x2[0], y2[0] = extend_to_circle((x2[1], y2[1]), (x2[0], y2[0]), R,
+                                        max_extend=MAX_RIM_EXTENSION_FRAC * R)
     if len(x2) >= 2 and np.hypot(x2[-1], y2[-1]) < 0.98 * R:
-        x2[-1], y2[-1] = extend_to_circle((x2[-2], y2[-2]), (x2[-1], y2[-1]), R)
+        x2[-1], y2[-1] = extend_to_circle((x2[-2], y2[-2]), (x2[-1], y2[-1]), R,
+                                          max_extend=MAX_RIM_EXTENSION_FRAC * R)
 
     return x2, y2
 
@@ -378,9 +425,11 @@ def _collapse_to_single_x_of_y(xs, ys, R, nbins=300, smooth_win=13,
     xlim = np.sqrt(np.maximum(0.0, float(R) ** 2 - yb ** 2)) - 1e-12
     xb_s = np.clip(xb_s, -xlim, xlim)
     if len(xb_s) >= 2 and np.hypot(xb_s[0], yb[0]) < 0.98 * R:
-        xb_s[0], yb[0] = extend_to_circle((xb_s[1], yb[1]), (xb_s[0], yb[0]), R)
+        xb_s[0], yb[0] = extend_to_circle((xb_s[1], yb[1]), (xb_s[0], yb[0]), R,
+                                          max_extend=MAX_RIM_EXTENSION_FRAC * R)
     if len(xb_s) >= 2 and np.hypot(xb_s[-1], yb[-1]) < 0.98 * R:
-        xb_s[-1], yb[-1] = extend_to_circle((xb_s[-2], yb[-2]), (xb_s[-1], yb[-1]), R)
+        xb_s[-1], yb[-1] = extend_to_circle((xb_s[-2], yb[-2]), (xb_s[-1], yb[-1]), R,
+                                            max_extend=MAX_RIM_EXTENSION_FRAC * R)
     return xb_s, yb
 
 
@@ -520,7 +569,13 @@ def _energy_step_candidate_scan(
         cand_list = cand_list[:K_keep]
 
     best = None
+    r_tip = float(np.hypot(xs_u[-1], ys_u[-1]))
     for _cheap, psi_new, nx, ny, abs_dth in cand_list:
+        # The crack runs from the interior toward the platens, so a candidate
+        # that retreats toward the centre is not admissible. Checked before the
+        # SIF solve, which is the expensive part.
+        if np.hypot(nx, ny) < r_tip - RETREAT_TOL_FRAC * float(ds):
+            continue
         if len(xs_u) > 25:
             p1 = (xs_u[-1], ys_u[-1])
             p2 = (nx, ny)
@@ -698,9 +753,36 @@ def crack_path_ddm_hybrid_controller_mirror(
                 cand2 = float(wrap_pi_scalar(psi_line + np.pi))
                 psi_step = cand2 if abs(wrap_pi_scalar(cand2 - psi)) < abs(
                     wrap_pi_scalar(cand1 - psi)) else cand1
+
+                # The guidance field is a line field, so it offers two
+                # antiparallel directions and continuity alone chooses between
+                # them. Once a burst flips to the inward one it keeps going,
+                # and the tip walks back through the centre: on the augen
+                # gneiss at 0 degrees it reached 0.78R, reversed, returned to
+                # 0.06R and was still wandering when the stall counter fired,
+                # leaving the path truncated at 0.78R. Reject the flip that
+                # retreats, on the same tolerance the energy scan uses.
+                def _r_after(a):
+                    return float(np.hypot(tipx + ds_step * np.cos(a),
+                                          tipy + ds_step * np.sin(a)))
+                r_floor = rr - RETREAT_TOL_FRAC * float(ds_step)
+                if _r_after(psi_step) < r_floor:
+                    other = cand2 if psi_step == cand1 else cand1
+                    if _r_after(other) >= r_floor:
+                        psi_step = other
                 nx = float(tipx + ds_step * np.cos(psi_step))
                 ny = float(tipy + ds_step * np.sin(psi_step))
-                if (nx * nx + ny * ny) >= (0.999 * R) ** 2:
+                rn2 = float(np.hypot(nx, ny))
+                if rn2 >= 0.999 * R:
+                    # Land the last increment on the rim rather than throwing
+                    # it away. Discarding it left the tip one step inside the
+                    # boundary with the radius no longer improving, which the
+                    # stall counter then read as an arrest.
+                    nx *= (0.999 * R) / (rn2 + 1e-30)
+                    ny *= (0.999 * R) / (rn2 + 1e-30)
+                    xs_u.append(nx)
+                    ys_u.append(ny)
+                    psi = float(wrap_pi_scalar(psi_step))
                     break
                 xs_u.append(nx)
                 ys_u.append(ny)
@@ -709,6 +791,9 @@ def crack_path_ddm_hybrid_controller_mirror(
             mode = "ENERGY"
 
         rr_now = float(np.hypot(xs_u[-1], ys_u[-1]))
+        if STEP_TRACE is not None:
+            STEP_TRACE.append((step, mode, rr_now / R, stall, len(xs_u),
+                               energy_fail_count))
         if rr_now > best_r + 1e-12:
             best_r = rr_now
             best_n = len(xs_u)
@@ -716,6 +801,9 @@ def crack_path_ddm_hybrid_controller_mirror(
         else:
             stall += 1
             if stall >= int(stall_patience):
+                if STEP_TRACE is not None:
+                    STEP_TRACE.append(("STALL_BREAK", mode, rr_now / R, stall,
+                                       len(xs_u), energy_fail_count))
                 break
 
         step += 1
@@ -731,9 +819,11 @@ def crack_path_ddm_hybrid_controller_mirror(
 
     if len(xs) >= 4:
         if np.hypot(xs[0], ys[0]) < 0.98 * R:
-            xs[0], ys[0] = extend_to_circle((xs[1], ys[1]), (xs[0], ys[0]), R)
+            xs[0], ys[0] = extend_to_circle((xs[1], ys[1]), (xs[0], ys[0]), R,
+                                            max_extend=MAX_RIM_EXTENSION_FRAC * R)
         if np.hypot(xs[-1], ys[-1]) < 0.98 * R:
-            xs[-1], ys[-1] = extend_to_circle((xs[-2], ys[-2]), (xs[-1], ys[-1]), R)
+            xs[-1], ys[-1] = extend_to_circle((xs[-2], ys[-2]), (xs[-1], ys[-1]), R,
+                                              max_extend=MAX_RIM_EXTENSION_FRAC * R)
 
     # -------------------------------------------------------
     # REVISED postprocessing: physics check first, then
@@ -1129,7 +1219,7 @@ def main(rock):
         else:
             fit = fit_orthotropic_airy_disk(
                 E1, E2, nu12, G12, R=R, t=t, P=P, alpha=alpha_const,
-                M=24, Nbd=int(args.airy_Nbd_base),
+                Nbd=int(args.airy_Nbd_base),
                 beta_deg=float(args.platen_half_angle_deg),
                 smooth_deg=float(args.platen_smooth_deg),
                 mu=float(args.platen_mu),
@@ -1172,7 +1262,7 @@ def main(rock):
             x=xg, y=yg,
             weak_spacing=float(args.weak_spacing_m),
             weak_bandwidth_frac=0.25, weak_floor=0.10,
-            stress_sign_mode="auto",
+            stress_sign_mode="tension_positive",
             conf_k=0.65, wing_k=1.00, wing_p=2.0,
         )
         # --- 4CLASS ADJACENT CALL (additive; manuscript revision 2026-07) ----
@@ -1196,7 +1286,7 @@ def main(rock):
                 util_min=float(args.fail_util_min),
                 n_theta_mc=int(args.fail_mc_nplanes),
                 mc_compression_only=True, mc_sigma_comp_min=0.0,
-                stress_sign_mode="auto",
+                stress_sign_mode="tension_positive",
             )
             if k == 0:
                 fourclass_records_38 = []
@@ -1419,6 +1509,25 @@ def main(rock):
                 sc.set_clim(0.0, vmax_global)
             cb = fig_energy.colorbar(energy_mappables[-1], cax=cax_energy)
             cb.set_label("U (MPa)")
+            # The manuscript quotes this scale to compare the two rocks, but it
+            # existed only inside the plotting call, so nothing could check it
+            # and it could age unnoticed while the figure stayed current.
+            _scale_csv = os.path.join(
+                str(output_dirs.TABLE_DIR), "energy_colour_scale.csv")
+            _row = pd.DataFrame([dict(
+                rock=_rock().display_name,
+                u_95th_percentile_MPa=vmax_global,
+                n_values=int(allU.size),
+                n_specimens=len(all_U_vals),
+                note="95th percentile of strain-energy density pooled over the "
+                     "seven orientations; sets the shared colour scale")])
+            if os.path.exists(_scale_csv):
+                _prev = pd.read_csv(_scale_csv)
+                _prev = _prev[_prev.rock != _rock().display_name]
+                _row = pd.concat([_prev, _row], ignore_index=True)
+            _row.sort_values("rock").to_csv(_scale_csv, index=False)
+            print(f"  energy colour scale (95th pct U) = {vmax_global:.4f} MPa"
+                  f"  -> {_scale_csv}")
 
     # --- Save stats ---
     stats_path = os.path.join(args.out_dir, str(args.stats_csv))
@@ -1472,7 +1581,7 @@ def main(rock):
                 fourclass_records_38,
                 os.path.join(output_dirs.FIGURE_DIR, f"{_rock().key}_fourclass_map.pdf"),
                 os.path.join(output_dirs.FIGURE_DIR, f"{_rock().key}_fourclass_map.png"),
-                lith_title="Augen gneiss", rmax_frac=rmax_frac_stats,
+                lith_title=_rock().display_name, rmax_frac=rmax_frac_stats,
             )
             print(f"[4class] mapping table: {_fc4_csv} ({len(_fc4_df)} rows)")
             print(f"[4class] figure: {_fc4_pdf} / {_fc4_png}")

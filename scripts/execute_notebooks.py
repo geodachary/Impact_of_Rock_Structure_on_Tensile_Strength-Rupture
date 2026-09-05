@@ -29,6 +29,40 @@ ORDER = [
 ]
 
 
+def strip_embedded_images(nb):
+    """Drop rendered images from cell outputs, keep the printed text.
+
+    Every figure a cell draws is also written to ``outputs/figures`` as PDF and
+    PNG, so embedding it here stores the same picture twice: 36 MB of base64
+    across the three notebooks against 60 kB of printed output. Base64 in JSON
+    does not diff, so each run rewrites all of it as a new blob.
+
+    ``build_notebooks.py`` strips images when it carries outputs across a
+    rebuild, but that does not help here: executing the notebooks puts them
+    straight back. The stripping has to happen where the outputs are produced,
+    which is here.
+    """
+    for cell in nb.cells:
+        if cell.get("cell_type") != "code":
+            continue
+        kept = []
+        for out in cell.get("outputs", []):
+            data = out.get("data")
+            if data is None:
+                kept.append(out)
+                continue
+            trimmed = {k: v for k, v in data.items() if not k.startswith("image/")}
+            if not trimmed:
+                continue                      # the output was only a picture
+            out["data"] = trimmed
+            meta = out.get("metadata")
+            if isinstance(meta, dict):
+                out["metadata"] = {k: v for k, v in meta.items()
+                                   if not k.startswith("image/")}
+            kept.append(out)
+        cell["outputs"] = kept
+
+
 def execute(name, timeout, kernel):
     import nbformat
     from nbclient import NotebookClient
@@ -63,6 +97,7 @@ def execute(name, timeout, kernel):
     finally:
         # Write whatever ran, so a failure still leaves the successful cells'
         # outputs on disk and the failing cell's traceback visible in place.
+        strip_embedded_images(nb)
         nbformat.write(nb, path)
 
     elapsed = time.time() - start

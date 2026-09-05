@@ -7,6 +7,13 @@ argument, so a wrong spacing is silent everywhere except in the geometry of
 those fields. Counting the bands is the direct check: a disc of radius R cut by
 planes spaced s apart shows about 2R/s maxima along a diameter.
 
+The spacing is carried by ``wp_weight``, not by ``Rt_eff``. This script read
+``Rt_eff`` and reported a MISMATCH on both rocks, because at 0 degrees the
+foliation is clamped shut and the tensile utility is the smooth matrix term
+sigma_1 / T_m. That is the correct field, not a defect, and
+``test_spacing_modulates_resistance`` had already been corrected to read
+``wp_weight`` while this script and the profile figure were left behind.
+
 This reports rather than asserts, and it prints both rocks side by side, so the
 question "are these two actually different?" is answered by looking. The same
 comparison is pinned as a test in
@@ -54,7 +61,7 @@ def main():
     spacing = {l.display_name: l.spacing_m for l in lith.LITHOLOGIES.values()}
 
     print(f"{'lithology':20s} {'s (mm)':>7s} {'R (mm)':>7s} "
-          f"{'2R/s':>7s} {'Rt bands':>9s} {'s1 bands':>9s}")
+          f"{'2R/s':>7s} {'w bands':>9s} {'s1 bands':>9s} {'Rt bands':>9s}")
     rows = []
     for rock, f in sorted(by_rock.items()):
         s = spacing.get(rock)
@@ -63,16 +70,17 @@ def main():
             continue
         R = float(f["R_m"])
         expected = 2.0 * R / s
-        n_rt = n_maxima(profile(f, "Rt_eff"))
+        n_rt = n_maxima(profile(f, "wp_weight"))
         n_s1 = n_maxima(profile(f, "s1"))
+        n_ut = n_maxima(profile(f, "Rt_eff"))
         print(f"{rock:20s} {s * 1e3:7.1f} {R * 1e3:7.2f} "
-              f"{expected:7.1f} {n_rt:9d} {n_s1:9d}")
-        rows.append((rock, expected, n_rt, n_s1))
+              f"{expected:7.1f} {n_rt:9d} {n_s1:9d} {n_ut:9d}")
+        rows.append((rock, expected, n_rt, n_s1, n_ut))
 
     print()
     ok = True
-    for rock, expected, n_rt, n_s1 in rows:
-        # The tensile utility must carry the spacing ...
+    for rock, expected, n_rt, n_s1, n_ut in rows:
+        # The proximity weight must carry the spacing ...
         if abs(n_rt - expected) > max(2.0, 0.1 * expected):
             print(f"  MISMATCH {rock}: {n_rt} bands against {expected:.0f} "
                   f"expected from 2R/s")
@@ -83,6 +91,13 @@ def main():
         if n_s1 > 2:
             print(f"  LEAK {rock}: sigma_1 shows {n_s1} maxima; the elastic "
                   f"field should carry no spacing signature")
+            ok = False
+        # ... and at 0 degrees the tensile utility must not: the planes are
+        # clamped, so R_t is the smooth matrix term. Periodic content here
+        # would mean weak-plane terms were admitted against compression.
+        if n_ut > 2:
+            print(f"  CLAMP {rock}: R_t shows {n_ut} maxima at 0 degrees; the "
+                  f"foliation is shut there and R_t should be smooth")
             ok = False
 
     if ok and len(rows) == 2:

@@ -36,6 +36,11 @@ from tools.ddm import (  # noqa: F401
 
 # --- implementation ---------------------------------------------------
 
+#: Diagnostic hook. When set to a list, the preconditioned CG appends its
+#: relative residual at every iteration, so a caller can tell a slowly
+#: converging solve from a stagnating one. ``None`` in normal operation.
+CG_TRACE = None
+
 
 def sanitize_argv(argv):
     out = []
@@ -741,7 +746,10 @@ def compute_combined_field_for_sample(
             rx[~mask] = 0.0
             ry[~mask] = 0.0
 
-            if norm_mask(rx, ry) / r0 < tol_rel:
+            rel = norm_mask(rx, ry) / r0
+            if CG_TRACE is not None:
+                CG_TRACE.append(float(rel))
+            if rel < tol_rel:
                 return u, v, True
 
             Minv(rx, ry, zx, zy)
@@ -1024,6 +1032,10 @@ def compute_combined_field_for_sample(
 
         rel = abs(b_contact - b_old) / (abs(b_old) + 1e-30)
         outer_iter += 1
+        if CG_TRACE is not None:
+            print(f"    [outer {outer_iter}] b_old={b_old:.6e} b_new_raw={b_new:.6e} "
+                  f"b_contact={b_contact:.6e} rel={rel:.3e} tol={hertz_rel_b_tol:.1e} "
+                  f"scale_tmp={scale_tmp:.6e}", flush=True)
         if rel < hertz_rel_b_tol:
             break
 
@@ -1033,6 +1045,14 @@ def compute_combined_field_for_sample(
 
     u, v = solve_system(bx_rhs, by_rhs, u_prev, v_prev,
                         tol_rel=tol_rel_final, maxiter=maxiter_final)
+
+    if CG_TRACE is not None:
+        _ax = np.zeros_like(bx_rhs)
+        _ay = np.zeros_like(by_rhs)
+        apply_K_inplace(u, v, _ax, _ay)
+        _num = norm_mask(bx_rhs - _ax, by_rhs - _ay)
+        _den = norm_mask(bx_rhs, by_rhs) + 1e-30
+        print(f"    [final] ||b-Au||/||b|| = {_num/_den:.4e}", flush=True)
 
     sxx0, syy0, txy0 = stresses(u, v)
     sxx0 = np.where(mask, sxx0, np.nan)

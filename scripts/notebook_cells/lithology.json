@@ -1,77 +1,72 @@
 [
  {
-  "index": 38,
+  "index": 0,
   "cell_type": "markdown",
   "source": "## Four-mechanism failure classification (WT / WS / MT / MS)\n\nThe utility-ratio classifier above resolves mechanism only. This section\nresolves **mechanism and structural locus** together, so weak-plane opening\nis no longer absorbed into a matrix category:\n\n| | |\n|---|---|\n| **WT** | tensile opening along the weak plane |\n| **WS** | shear sliding along the weak plane |\n| **MT** | tensile cracking through the intact matrix |\n| **MS** | shear cracking through the intact matrix |\n\nWeak-plane utilities are admissible only inside the modelled activation\nband, so a matrix point cannot be labelled a weak-plane failure. Mixed\nmode is a secondary flag, not a fifth class.\n\nThe implementation is shared with the other lithology notebook\n(`tools.failure_classification`), so the two cannot drift apart.\n"
  },
  {
-  "index": 39,
+  "index": 1,
   "cell_type": "code",
   "source": "import pandas as pd, numpy as np\nfrom tools import lithology, failure_classification, plotting, export\nfrom tools import strain_partitioning\nfrom tools.plot_style import apply_plot_style\n\nTICKS = apply_plot_style()\n# ROCK was bound in the configuration cell at the top of this notebook.\nlithology.assert_notebook_lithology(ROCK.key, ROCK.sample_ids)\n\nstrengths = strain_partitioning.specimen_strengths()\npanels = [export.classification_panel(s, strengths) for s in ROCK.sample_ids]\n\nfourclass = pd.DataFrame([\n    dict(sample=p['sample'], angle_deg=p['angle_deg'], **p['fractions'])\n    for p in panels])\nprint(f'{ROCK.display_name}: WT/WS/MT/MS area fractions')\ndisplay(fourclass[['sample','angle_deg','WT','WS','MT','MS','none',\n                   'failed_point_fraction']].round(4))\n"
  },
  {
-  "index": 40,
+  "index": 2,
   "cell_type": "code",
-  "source": "paths = plotting.seven_panel_classification(\n    panels, ROCK,\n    f'figures/failure_mechanism_classification_{ROCK.key}_7panel')\nprint('written:'); [print('  ', p) for p in paths]\n\nwt = fourclass.set_index('angle_deg')['WT']\nprint(f\"\\nWT area fraction: {wt.loc[0]:.4f} at 0 deg -> \"\n      f\"{wt.loc[90]:.4f} at 90 deg\")\nprint('Weak-plane opening becomes important only as the fabric rotates'\n      ' into alignment with the loading diameter.')\n"
+  "source": "paths = plotting.seven_panel_classification(\n    panels, ROCK,\n    f'outputs/figures/failure_mechanism_classification_{ROCK.key}_7panel')\nprint('written:'); [print('  ', p) for p in paths]\n\nwt = fourclass.set_index('angle_deg')['WT']\nprint(f\"\\nWT area fraction: {wt.loc[0]:.4f} at 0 deg -> \"\n      f\"{wt.loc[90]:.4f} at 90 deg\")\nprint('Weak-plane opening becomes important only as the fabric rotates'\n      ' into alignment with the loading diameter.')\n"
  },
  {
-  "index": 41,
+  "index": 3,
   "cell_type": "markdown",
   "source": "## Observed versus predicted fracture-trace orientation\n\nEach digitized laboratory trace is paired one-to-one with its\nmodel-derived trace for the same specimen. The primary fracture is the\nconnected segment of greatest arc length; orientation is fitted by total\nleast squares over the central half of the disc; the error is the axial\ndifference wrapped into [0°, 90°]. The same rule is applied to both\nobserved and predicted traces.\n"
  },
  {
-  "index": 42,
+  "index": 4,
   "cell_type": "code",
   "source": "from tools import traces\nSEED = 20260807      # orientation-fit bootstrap\n\nrows = [traces.compare_specimen(s, seed=SEED) for s in ROCK.sample_ids]\norient = pd.DataFrame([{k: v for k, v in r.items()\n                        if not k.startswith('_')} for r in rows])\ndisplay(orient[['sample','experimental_angle_deg',\n                'observed_orientation_deg','observed_bootstrap_sd_deg',\n                'predicted_orientation_deg',\n                'abs_axial_angular_error_deg']].round(2))\n"
  },
  {
-  "index": 43,
+  "index": 5,
   "cell_type": "code",
   "source": "agg = traces.aggregate_statistics(rows)\nnull = traces.null_model_statistics(rows)\n\nprint(f\"n = {agg['n']}\")\nprint(f\"MAE {agg['mae_deg']:.2f} deg | RMSE {agg['rmse_deg']:.2f} | \"\n      f\"median {agg['median_deg']:.2f} | max {agg['max_deg']:.2f}\")\nprint(f\"within 5 deg {agg['n_within_5']}/{agg['n']} | \"\n      f\"within 10 deg {agg['n_within_10']}/{agg['n']}\")\nprint(f\"\\nloading-parallel null MAE {null['mae_deg']:.2f} deg\")\nprint('model beats the null:', null['mae_deg'] > agg['mae_deg'])\nprint('\\nBoth observed and predicted fractures lie close to the loading'\n      ' diameter, so this is a consistency check rather than a'\n      ' validation of predicted orientation.')\n"
  },
  {
-  "index": 44,
+  "index": 6,
   "cell_type": "code",
-  "source": "paths = plotting.seven_panel_trace_overlay(\n    rows, ROCK, f'figures/fracture_trace_overlay_{ROCK.key}_7panel')\nprint('written:'); [print('  ', p) for p in paths]\n"
+  "source": "paths = plotting.seven_panel_trace_overlay(\n    rows, ROCK, f'outputs/figures/fracture_trace_overlay_{ROCK.key}_7panel')\nprint('written:'); [print('  ', p) for p in paths]\n"
  },
  {
-  "index": 68,
+  "index": 7,
   "cell_type": "markdown",
   "source": "## Strain-energy partitioning (four-mechanism)\n\nThe energy split is computed from the same WT/WS/MT/MS classifier used\nabove, so the partition and the failure maps are two views of one\ncalculation rather than independent models.\n\nThe three regimes are uniform mean-stress offsets of +0.50, 0 and\n−0.50 MPa, which is what the underlying model applies; principal\ndirections and deviatoric magnitudes are held fixed.\n"
  },
  {
-  "index": 69,
+  "index": 8,
   "cell_type": "code",
-  "source": "part = pd.DataFrame([\n    strain_partitioning.partition_specimen(s, reg, strengths)\n    for s in ROCK.sample_ids\n    for reg in strain_partitioning.REGIME_OFFSETS_MPA])\n\nprint(f'{ROCK.display_name}: energy share by regime (% of stored energy)')\ndisplay(part.groupby('regime')[['WT_pct','WS_pct','MT_pct','MS_pct',\n                                'below_threshold_pct']].mean().round(2))\n\nimport pathlib; pathlib.Path('results').mkdir(exist_ok=True)\nfourclass.to_csv(f'results/fourclass_fractions_{ROCK.key}.csv', index=False)\norient.to_csv(f'results/orientation_validation_{ROCK.key}.csv', index=False)\npart.to_csv(f'results/strain_partition_{ROCK.key}.csv', index=False)\nprint('\\nexported three tables to results/')\n"
+  "source": "part = pd.DataFrame([\n    strain_partitioning.partition_specimen(s, reg, strengths)\n    for s in ROCK.sample_ids\n    for reg in strain_partitioning.REGIME_OFFSETS_MPA])\n\nprint(f'{ROCK.display_name}: energy share by regime (% of stored energy)')\ndisplay(part.groupby('regime')[['WT_pct','WS_pct','MT_pct','MS_pct',\n                                'below_threshold_pct']].mean().round(2))\n\noutput_dirs.tables()\nfourclass.to_csv(f'outputs/tables/fourclass_fractions_{ROCK.key}.csv', index=False)\norient.to_csv(f'outputs/tables/orientation_validation_{ROCK.key}.csv', index=False)\npart.to_csv(f'outputs/tables/strain_partition_{ROCK.key}.csv', index=False)\nprint('\\nexported three tables to outputs/tables/')\n"
  },
  {
-  "index": 70,
-  "cell_type": "code",
-  "source": "# Cross-lithology figure: needs both rocks, so it reads the full set.\nboth = strain_partitioning.partition_all()\ncontrast = strain_partitioning.lithology_contrast(both)\nprint('gneiss vs schist — 0 identical rows means the rocks are distinguished')\ndisplay(contrast.round(4))\n\npaths = plotting.strain_partition_two_rocks(\n    both, 'figures/strain_partitioning_two_rocks')\nprint('written:'); [print('  ', p) for p in paths]\n"
- },
- {
-  "index": 72,
+  "index": 9,
   "cell_type": "code",
   "source": "from pathlib import Path\nimport warnings\nimport numpy as np, pandas as pd\n\nwarnings.filterwarnings(\"ignore\")\nREPO = Path.cwd()          # notebooks run from the repository root, so\n                           # tools/ is importable without touching sys.path\n\n# The tables below key on the display name, so name it separately rather\n# than shadowing ROCK, which is the Lithology object everything else uses.\nROCK_NAME, SLUG = ROCK.display_name, ROCK.key\nSAMPLES = list(ROCK.sample_ids)\n\nfrom tools import fabric_tractions as ft\nprint(f\"{ROCK_NAME}: specimens {SAMPLES[0]}-{SAMPLES[-1]}, \"\n      f\"{len(ft.field_files())} fields exported in total\")"
  },
  {
-  "index": 73,
+  "index": 10,
   "cell_type": "code",
   "source": "# Traction resolved on the foliation, and how little the principal axes move\ntr  = ft.traction_table();       tr  = tr[tr.rock == ROCK_NAME].sort_values(\"angle_deg\")\nrot = ft.principal_rotation_table(); rot = rot[rot.rock == ROCK_NAME]\nhet = ft.heterogeneity_table();  het = het[het.rock == ROCK_NAME]\n\nprint(\"sigma_n on foliation (MPa)\")\nprint(\"   \" + \"  \".join(f\"{a:.0f}d={v:+6.2f}\" for a, v in\n                        zip(tr.angle_deg, tr.sigma_n_mean_MPa)))\nprint(\"|tau| on foliation (MPa)\")\nprint(\"   \" + \"  \".join(f\"{a:.0f}d={v:6.2f}\" for a, v in\n                        zip(tr.angle_deg, tr.tau_abs_mean_MPa)))\nprint(f\"principal rotation vs 0 deg: at most {rot.rotation_median_deg.max():.2f} deg\")\nprint(f\"within-specimen orientation spread: {het.circ_sd_deg.mean():.1f} deg\")"
  },
  {
-  "index": 74,
+  "index": 11,
   "cell_type": "code",
   "source": "# Four-mechanism classification: mechanism (tensile/shear) x locus (matrix/weak plane)\nimport importlib.util as ilu\nspec = ilu.spec_from_file_location(\"mfs\", REPO / \"scripts/make_failure_statistics_figures.py\")\nmfs = ilu.module_from_spec(spec); spec.loader.exec_module(mfs)\n\ncls = mfs.class_fractions(); cls = cls[cls.rock == ROCK_NAME].sort_values(\"angle_deg\")\nprint(cls[[\"angle_deg\", \"WT\", \"WS\", \"MT\", \"MS\", \"none\"]].to_string(\n    index=False, float_format=lambda v: f\"{v:.3f}\"))\nprint()\nprint(f\"matrix shear {cls.MS.iloc[0]:.2f} -> {cls.MS.iloc[-1]:.2f} with angle\")\nprint(f\"weak-plane sliding peaks at {cls.loc[cls.WS.idxmax(), 'angle_deg']:.0f} deg \"\n      f\"({cls.WS.max():.3f})\")\nprint(f\"weak-plane opening at 90 deg: {cls.WT.iloc[-1]:.3f}\")"
  },
  {
-  "index": 75,
+  "index": 12,
   "cell_type": "code",
   "source": "# Connectivity of the elevated strain-energy region: corridor or separate lobes\nfrom tools import energy_localization as el\nt = el.localization_table(); t = t[t.rock == ROCK_NAME].sort_values(\"angle_deg\")\nprint(t[[\"angle_deg\", \"n_components\", \"elongation\", \"corridor\"]].to_string(\n    index=False, float_format=lambda v: f\"{v:.2f}\"))\nprint()\nprint(f\"corridor forms at {int(t.corridor.sum())} of {len(t)} orientations\")"
  },
  {
-  "index": 76,
+  "index": 13,
   "cell_type": "code",
-  "source": "# Figures for this lithology. The shared scripts write both rocks in one\n# pass, so running them here also refreshes the other notebook's panels.\nfrom tools import figure_scripts\n\nfigure_scripts.run_all((\n    \"make_stress_field_figures\",\n    \"make_stress_profile_figures\",\n    \"make_energy_localization_figure\",\n))\n\nfigure_scripts.report_expected((\n    f\"{SLUG}_stress_tensors.pdf\",\n    f\"{SLUG}_stress_distribution_graph.pdf\",\n    f\"fig_S_energy_localization_{SLUG}.pdf\",\n))"
+  "source": "# Figures for this lithology are written by the shared scripts, which cover\n# both rocks in one pass and therefore run once, in the general notebook.\n# Here we only confirm that this lithology's panels are present.\nfrom tools import figure_scripts\n\nfigure_scripts.report_expected((\n    f\"{SLUG}_stress_tensors.pdf\",\n    f\"{SLUG}_stress_distribution_graph.pdf\",\n    f\"fig_S_energy_localization_{SLUG}.pdf\",\n))"
  }
 ]

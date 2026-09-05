@@ -1,56 +1,61 @@
 [
  {
-  "index": 13,
+  "index": 0,
   "cell_type": "code",
   "source": "from pathlib import Path\nimport warnings\nimport numpy as np, pandas as pd\n\nwarnings.filterwarnings(\"ignore\")\nREPO = Path.cwd()          # notebooks run from the repository root, so\n                           # tools/ is importable without touching sys.path\n\nfrom tools.figure_scripts import run\nfrom tools import fabric_tractions as ft\nfrom tools.data_io import load_specimen_table, load_replicate_table\n\nassert len(ft.field_files()) == 14, \"run both lithology notebooks first\"\nprint(f\"{len(load_specimen_table())} specimens, \"\n      f\"{len(load_replicate_table())} replicate measurements, 14 fields\")"
  },
  {
-  "index": 14,
+  "index": 1,
   "cell_type": "code",
   "source": "# Strength anisotropy, both loading modes, from the replicate table\nfrom tools import strength_anisotropy as sa\nprint(sa.per_angle_means().to_string(index=False))\nprint()\nr = sa.anisotropy_ratios().set_index(\"lithology\")\nfor lit in r.index:\n    print(f\"{lit:17s} tensile {r.loc[lit,'tensile_anisotropy']:.2f}  \"\n          f\"compressive {r.loc[lit,'compressive_anisotropy']:.2f}  \"\n          f\"separation {abs(r.loc[lit,'relative_separation_pct']):.0f}%\")"
  },
  {
-  "index": 15,
+  "index": 2,
   "cell_type": "code",
   "source": "# Asymmetric strength envelope, and the cosine law fitted to the same data.\n# End members are measured, so only the depth and position of the weakening\n# are fitted; intervals are profile-likelihood ranges.\nfrom scipy.optimize import curve_fit\nfrom tools import ati_model as A\nfrom tools.ati_model import cosine_law\n\nd = load_replicate_table()\n\nrows = []\nfor rock in (\"Augen gneiss\", \"Psammitic schist\"):\n    sub = d[d.Rock_type == rock].dropna(subset=[\"Angle\", \"Tensile_strength_Mpa\"])\n    fit = A.fit(sub)\n    e_lo, e_hi, *_ = A.profile_interval(fit, \"eta\", 0.0, 6.0, 0.05)\n    b_lo, b_hi, *_ = A.profile_interval(fit, \"beta_peak\", 45.0, 89.0, 1.0)\n    x, y = sub.Angle.to_numpy(float), sub.Tensile_strength_Mpa.to_numpy(float)\n    p, _ = curve_fit(cosine_law, x, y, p0=[y.mean(), -1.0, 70.0], maxfev=200000)\n    dense = np.linspace(0, 90, 4001)\n    rows.append(dict(lithology=rock, eta=fit[\"eta\"], eta_lo=e_lo, eta_hi=e_hi,\n                     beta_p=fit[\"beta_peak_deg\"], beta_lo=b_lo, beta_hi=b_hi,\n                     R2=fit[\"R2\"], chi2_red=fit[\"chi2_red\"],\n                     envelope_min=fit[\"model_min_deg\"],\n                     cosine_min=dense[np.argmin(cosine_law(dense, *p))]))\nenv = pd.DataFrame(rows)\nprint(env.to_string(index=False, float_format=lambda v: f\"{v:.3f}\"))\nprint()\nfor _, q in env.iterrows():\n    print(f\"{q.lithology:17s} envelope minimum {q.envelope_min:5.1f} deg, \"\n          f\"cosine law {q.cosine_min:5.1f} deg, measured 75 deg\")"
  },
  {
-  "index": 16,
+  "index": 3,
   "cell_type": "code",
-  "source": "run(\"make_envelope_fit_figure\")\nrun(\"make_weakening_figure\")\nrun(\"make_predicted_vs_actual\")\nrun(\"make_ati_supplement\")"
+  "source": "run(\"make_envelope_fit_figure\")\nrun(\"make_weakening_figure\")\nrun(\"make_predicted_vs_actual\")\nrun(\"make_ati_supplement\")\nrun(\"make_strength_by_angle_table\")\nrun(\"make_strength_anisotropy_figures\")"
  },
  {
-  "index": 17,
+  "index": 4,
   "cell_type": "code",
-  "source": "# Tractions resolved on the fabric: where the orientation dependence lives\ntr = ft.traction_table()\nfor rock, g in tr.groupby(\"rock\"):\n    g = g.sort_values(\"angle_deg\")\n    print(rock)\n    print(\"   sigma_n  \" + \"  \".join(f\"{a:.0f}d={v:+6.2f}\" for a, v in\n                                     zip(g.angle_deg, g.sigma_n_mean_MPa)))\n    print(\"   |tau|    \" + \"  \".join(f\"{a:.0f}d={v:6.2f}\" for a, v in\n                                     zip(g.angle_deg, g.tau_abs_mean_MPa)))\nrot = ft.principal_rotation_table()\nfor rock, g in rot.groupby(\"rock\"):\n    print(f\"{rock:17s} principal rotation at most {g.rotation_median_deg.max():.2f} deg\")\nrun(\"make_stress_field_figures\")\n# Writes the fabric-traction and energy-localization supplementary tables,\n# and brings the captions that describe these fields into line with them.\nrun(\"patch_stress_field_text\")"
+  "source": "# Tractions resolved on the fabric: where the orientation dependence lives\ntr = ft.traction_table()\nfor rock, g in tr.groupby(\"rock\"):\n    g = g.sort_values(\"angle_deg\")\n    print(rock)\n    print(\"   sigma_n  \" + \"  \".join(f\"{a:.0f}d={v:+6.2f}\" for a, v in\n                                     zip(g.angle_deg, g.sigma_n_mean_MPa)))\n    print(\"   |tau|    \" + \"  \".join(f\"{a:.0f}d={v:6.2f}\" for a, v in\n                                     zip(g.angle_deg, g.tau_abs_mean_MPa)))\nrot = ft.principal_rotation_table()\nfor rock, g in rot.groupby(\"rock\"):\n    print(f\"{rock:17s} principal rotation at most {g.rotation_median_deg.max():.2f} deg\")\nrun(\"make_stress_field_figures\")\n# Both of these write panels for the two rocks in a single pass, so they run\n# here rather than once in each lithology notebook.\nrun(\"make_stress_profile_figures\")\nrun(\"make_energy_localization_figure\")\nrun(\"make_matrix_shear_anchoring\")\n# Writes the fabric-traction and energy-localization supplementary tables,\n# and brings the captions that describe these fields into line with them.\nrun(\"patch_stress_field_text\")"
  },
  {
-  "index": 18,
+  "index": 5,
+  "cell_type": "code",
+  "source": "# Cross-lithology strain partitioning: needs both rocks, so it belongs here\n# rather than being repeated in each lithology notebook.\nfrom tools import strain_partitioning, plotting\n\nboth = strain_partitioning.partition_all()\ncontrast = strain_partitioning.lithology_contrast(both)\nprint('gneiss vs schist — 0 identical rows means the rocks are distinguished')\ndisplay(contrast.round(4))\n\npaths = plotting.strain_partition_two_rocks(\n    both, 'outputs/figures/strain_partitioning_two_rocks')\nprint('written:'); [print('  ', p) for p in paths]"
+ },
+ {
+  "index": 6,
   "cell_type": "code",
   "source": "# Failure statistics, counted from the fields rather than carried as literals\nimport importlib.util as ilu\nspec = ilu.spec_from_file_location(\"mfs\", REPO / \"scripts/make_failure_statistics_figures.py\")\nmfs = ilu.module_from_spec(spec); spec.loader.exec_module(mfs)\ncnt = mfs.counts()\nassert cnt.total.nunique() == 1, \"point totals must not vary with orientation\"\nfor rock, g in cnt.groupby(\"rock\"):\n    g = g.sort_values(\"angle_deg\")\n    print(f\"{rock:17s} failed \" + \"  \".join(f\"{a:.0f}d={v:.0f}%\" for a, v in\n                                            zip(g.angle_deg, g.p_fail)))\nrun(\"make_failure_statistics_figures\")"
  },
  {
-  "index": 19,
+  "index": 7,
   "cell_type": "code",
   "source": "# Sensitivity: spacing acts on resistance only, disorder on the thresholds\nfrom tools import sensitivity_sweeps as sw\nfor name, df, col in ((\"spacing\", sw.spacing_sweep(), \"spacing_m\"),\n                      (\"disorder\", sw.heterogeneity_sweep(), \"heterogeneity\")):\n    print(name)\n    for rock, g in df.groupby(\"rock\"):\n        m = g.groupby(col).delta_failure_pct.mean()\n        print(f\"   {rock:17s} \" + \"  \".join(f\"{k:g}:{v:+.1f}%\" for k, v in m.items()))\nrun(\"make_sensitivity_figures\")"
  },
  {
-  "index": 20,
+  "index": 8,
   "cell_type": "code",
   "source": "# Softening cap: smallest value within 2% of the peak mixed-mode fraction\nfrom tools import softening_selection as ss\nprint(ss.select_all().to_string(index=False, float_format=lambda v: f\"{v:.4f}\"))"
  },
  {
-  "index": 21,
+  "index": 9,
   "cell_type": "code",
   "source": "# Fracture traces against a loading-direction null predictor\nfrom scipy import stats\nfrom tools import traces as tr_mod\nfor frac in (0.5, 1.0):\n    rows = tr_mod.compare_all(frac=frac)\n    ag = tr_mod.aggregate_statistics(rows); nl = tr_mod.null_model_statistics(rows)\n    df = pd.DataFrame(rows)\n    r, p = stats.pearsonr(df.observed_orientation_deg, df.predicted_orientation_deg)\n    print(f\"window {frac:.1f}R  model MAE {ag['mae_deg']:.2f}  null MAE {nl['mae_deg']:.2f}  \"\n          f\"null better: {nl['mae_deg'] < ag['mae_deg']}  r={r:+.2f} (p={p:.2f})\")"
  },
  {
-  "index": 22,
+  "index": 10,
   "cell_type": "code",
   "source": "# Supplementary bounds and convergence\nrun(\"make_eshelby_supplement\")\nrun(\"make_mesh_sensitivity_figure\")\nrun(\"make_fig20_supplement\")   # fig_S_GGc_monotonicity + its two tables"
  },
  {
-  "index": 23,
+  "index": 11,
   "cell_type": "code",
   "source": "# The supplementary tables above are written to manuscript/tables/*.txt and\n# folded into manscript_revision_001.tex between markers, so the paper stays\n# one .tex file for the submission portal while the tables stay regenerable.\nrun(\"inline_tables\")\n\n# Every graphic the manuscript includes must exist\nimport re\ntex = (REPO / \"manuscript/manscript_revision_001.tex\").read_text(encoding=\"utf-8\")\ngraphics = sorted({m.group(1) for m in\n                   re.finditer(r\"includegraphics\\[[^\\]]*\\]\\{([\\w./-]+)\\}\", tex)})\nmissing = [g for g in graphics\n           if not (REPO / \"manuscript\" /\n                   (g if \".\" in Path(g).name else g + \".pdf\")).exists()]\nprint(f\"{len(graphics)} graphics included, {len(missing)} missing\")\nassert not missing, missing\nprint(\"every graphic the manuscript includes is present\")"
  }

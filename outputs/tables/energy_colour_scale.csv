@@ -1,0 +1,3 @@
+rock,u_95th_percentile_MPa,n_values,n_specimens,note
+Augen gneiss,0.0497744373697338,140567,7,95th percentile of strain-energy density pooled over the seven orientations; sets the shared colour scale
+Psammitic schist,0.07776722571748336,140567,7,95th percentile of strain-energy density pooled over the seven orientations; sets the shared colour scale

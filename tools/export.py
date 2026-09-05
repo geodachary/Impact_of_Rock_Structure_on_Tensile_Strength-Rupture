@@ -1,7 +1,15 @@
-"""Machine-readable export of manuscript values and validation tables.
+"""Machine-readable export of the validation tables.
 
-Every number that reaches the manuscript passes through here, so each carries
-its units, sample count, source path and status.
+Each table carries the units, sample count, source path and status of every
+value in it, so a number in the manuscript can be traced back to the run that
+produced it.
+
+An earlier design routed every manuscript value through one appended
+``manuscript_values.csv`` with a reconciliation step against the previous run.
+That was dropped with the notebook-to-package migration: the per-quantity
+tables written here are produced by the generator that computes each quantity,
+which keeps provenance next to the computation rather than in a separate ledger
+that nothing regenerates.
 """
 
 from __future__ import annotations
@@ -109,59 +117,6 @@ def write_class_fraction_table(records, out=None):
     return out
 
 
-def append_manuscript_values(new_rows, out=None, generated_in="step2"):
-    """Append rows to ``manuscript_values.csv``, preserving earlier provenance."""
-    out = Path(out or REPO_ROOT) / "manuscript_values.csv"
-    df_new = pd.DataFrame(new_rows)
-    df_new["generated_in"] = generated_in
-    if out.exists():
-        prev = pd.read_csv(out)
-        # a re-run of the same step replaces its own rows rather than duplicating
-        prev = prev[prev.get("generated_in", "") != generated_in]
-        df = pd.concat([prev, df_new], ignore_index=True)
-    else:
-        df = df_new
-    df.to_csv(out, index=False)
-    return out
-
-
-def value_row(quantity, value, units, sample_count, data_source, script,
-              status="computed", notes=""):
-    """One provenance-carrying manuscript value."""
-    return dict(quantity=quantity, value=value, units=units, sample_count=sample_count,
-                data_source=data_source, script_or_cell=script, status=status, notes=notes)
-
-
-def reconcile(old_csv, new_rows, out=None, key="quantity"):
-    """Compare newly generated values against a previous export.
-
-    Classifies each as unchanged, corrected, newly_available, unavailable or
-    conflicting, so no value silently changes between runs.
-    """
-    out = Path(out or DEFAULT_OUT) / "dual_run_value_reconciliation.csv"
-    old = pd.read_csv(old_csv) if Path(old_csv).exists() else pd.DataFrame(columns=[key, "value"])
-    old_map = {str(r[key]): r["value"] for _, r in old.iterrows()}
-    recs = []
-    for r in new_rows:
-        q = str(r[key])
-        nv = r["value"]
-        if q not in old_map:
-            st, note = "newly_available", "not present in the earlier export"
-        else:
-            ov = old_map[q]
-            try:
-                same = np.isclose(float(ov), float(nv), rtol=1e-6, atol=1e-9)
-            except (TypeError, ValueError):
-                same = str(ov) == str(nv)
-            st = "unchanged" if same else "corrected"
-            note = "" if same else f"previous export gave {ov}"
-        recs.append(dict(quantity=q, previous_value=old_map.get(q, ""), final_value=nv,
-                         units=r.get("units", ""), status=st, note=note,
-                         evidence=r.get("data_source", "")))
-    pd.DataFrame(recs).to_csv(out, index=False)
-    return out
-
-
 def classification_panel(sample_id, strengths=None, root=None):
     """Four-mechanism classification of one specimen, ready for the composite figure.
 
@@ -169,8 +124,6 @@ def classification_panel(sample_id, strengths=None, root=None):
     notebook needs only to call this and hand the result to
     :func:`tools.plotting.seven_panel_classification`.
     """
-    import numpy as np
-
     from . import lithology as lith
     from . import failure_classification as fc
     from . import strain_partitioning as sp
@@ -193,9 +146,23 @@ def classification_panel(sample_id, strengths=None, root=None):
         threshold=sp.THRESHOLD, eta_mix=sp.ETA_MIX, n_theta=sp.N_THETA)
 
     mask = d["M"].astype(bool)
+
+    # The map is drawn over the whole stored mask, r <= 0.985 R, so the reader
+    # sees the entire disc. The *fractions* are taken over the analysis
+    # interior, CORE_FRAC = 0.85 R, which is what every other field statistic
+    # in the paper reports and what make_failure_statistics_figures already
+    # used. Reporting them over the stored mask instead put this table and
+    # fourclass_area_fractions.csv at different numbers for the same quantity,
+    # and pulled in the ring between 0.97 R and the rim where the
+    # boundary-traction fit carries its largest residual.
+    from tools import fabric_tractions as _ft
+    radius = np.hypot(np.asarray(d["X"], float), np.asarray(d["Y"], float))
+    core = mask & (radius <= float(_ft.CORE_FRAC) * float(d["R_m"]))
+
     return dict(sample=int(sample_id), lithology=lit.display_name,
                 angle_deg=lit.angle_for_sample(sample_id),
-                X=d["X"], Y=d["Y"], mask=mask,
+                X=d["X"], Y=d["Y"], mask=mask, core_mask=core,
+                core_frac=float(_ft.CORE_FRAC),
                 mode_code=res["mode_code"], mixed_flag=res["mixed_flag"],
-                fractions=fc.class_fractions(res["mode_code"], mask),
+                fractions=fc.class_fractions(res["mode_code"], core),
                 status="computed", reason="")

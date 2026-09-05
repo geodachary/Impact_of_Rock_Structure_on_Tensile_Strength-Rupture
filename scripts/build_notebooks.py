@@ -105,6 +105,27 @@ def code(text):
                 source=[l + "\n" for l in lines[:-1]] + [lines[-1]])
 
 
+def strip_images(output):
+    """Drop rendered image payloads, keep everything else.
+
+    Returns ``None`` if nothing survives, so an output that was only a picture
+    disappears rather than becoming an empty husk.
+    """
+    data = output.get("data")
+    if data is None:
+        return output
+    kept = {k: v for k, v in data.items() if not k.startswith("image/")}
+    if not kept:
+        return None
+    out = dict(output)
+    out["data"] = kept
+    meta = out.get("metadata")
+    if isinstance(meta, dict):
+        out["metadata"] = {k: v for k, v in meta.items()
+                           if not k.startswith("image/")}
+    return out
+
+
 def carry_over_outputs(nb, path):
     """Keep the stored outputs of any cell whose source is unchanged.
 
@@ -117,6 +138,14 @@ def carry_over_outputs(nb, path):
     loses its outputs and shows as unexecuted. Execution counts come along for
     the ride; they will be inconsistent until the next full run, which is the
     honest signal that the notebook is part-executed.
+
+    Rendered images are dropped, printed output is kept. Every figure a cell
+    draws is also written to ``outputs/figures`` as PDF and PNG, so embedding
+    it in the notebook stores the same picture a second time: 36 MB of base64
+    across the three notebooks against 60 kB of printed text, rewritten in
+    full on every run because base64 in JSON does not diff. The printed output
+    is the part that is not duplicated anywhere, and it is the part a reader
+    needs to see what the run reported.
     """
     if not path.exists():
         return nb
@@ -137,7 +166,8 @@ def carry_over_outputs(nb, path):
             continue
         match = stored.get("".join(cell["source"]))
         if match is not None:
-            cell["outputs"] = match["outputs"]
+            cell["outputs"] = [strip_images(o) for o in match["outputs"]]
+            cell["outputs"] = [o for o in cell["outputs"] if o is not None]
             cell["execution_count"] = match.get("execution_count")
             kept += 1
     nb["_kept_outputs"] = kept
@@ -182,8 +212,10 @@ import numpy as np, pandas as pd, matplotlib
 
 from tools import conventions, lithology, traces, failure_classification
 from tools import plotting, export, strain_partitioning
-from tools import analysis
+from tools import analysis, output_dirs
 from tools.plot_style import apply_plot_style
+
+output_dirs.ensure(*output_dirs.ALL)   # a clean checkout carries no outputs/
 
 TICKS = apply_plot_style()          # mandated publication style
 SEED = 20260807                     # orientation-fit bootstrap
@@ -269,8 +301,10 @@ fitted here and a field plotted there cannot disagree about the rock.
 
 import numpy as np, pandas as pd, matplotlib
 
-from tools import lithology, analysis
+from tools import lithology, analysis, output_dirs
 from tools.plot_style import apply_plot_style
+
+output_dirs.ensure(*output_dirs.ALL)   # a clean checkout carries no outputs/
 
 TICKS = apply_plot_style()
 

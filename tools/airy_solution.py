@@ -6,6 +6,29 @@ from.boundary_traction_model import platen_tractions_theta, pressure_amplitude_f
 from.rotation_helpers import rot_to_material, rot_to_global, vec_rot_to_material, vec_rot_to_global
 
 
+#: Airy series truncation used everywhere. Raised from 24 after the convergence
+#: study in ``scripts/make_mesh_sensitivity_figure.py``, which writes
+#: ``outputs/tables/convergence_series_order.csv``: at 24 the relative
+#: boundary-traction residual is 6.6e-2 and the interior field is still 29%
+#: from converged over the analysis core; by 48 the residual is 6.3e-3 and the
+#: core field is within 0.5% of M = 56 and 0.6% of an M = 96 reference.
+#:
+#: The fit does not become ill-conditioned beyond ~52, as this note used to
+#: claim. That was true at the old Tikhonov weight of 1e-10 and before the
+#: design matrix was column-equilibrated; the residual now falls monotonically
+#: to at least M = 96. The order is capped because the core field has stopped
+#: moving, not because the solve degrades.
+#:
+#: Every call site must take this default. Both the auto wrapper below and the
+#: production suite once carried their own ``M=24`` literal, which pinned every
+#: published field at 24 no matter what this said.
+DEFAULT_M = 48
+
+#: Tikhonov weight for the boundary fit. Small because the design matrix is
+#: column-equilibrated before the solve; see the note in
+#: :func:`fit_orthotropic_airy_disk`. Every call site must take this default.
+DEFAULT_LAM = 1e-18
+
 # =====================================================================
 # Airy-fit helpers
 # =====================================================================
@@ -66,12 +89,12 @@ def fit_orthotropic_airy_disk(
     E1, E2, nu12, G12,
     R: float, t: float, P: float,
     alpha: float,
-    M: int = 24,
+    M: int = DEFAULT_M,
     Nbd: int = 480,
     beta_deg: float = 10.0,
     smooth_deg: float = 4.0,
     mu: float = 0.0,
-    lam: float = 1e-10,
+    lam: float = DEFAULT_LAM,
     Nbd_arc_each: int = 1200,
 ):
     """
@@ -176,16 +199,39 @@ def fit_orthotropic_airy_disk(
         A[1::2, col] = Ty
         col += 1
 
-    # regularization
+    # Column equilibration before regularising.
+    #
+    # The basis is (z/R)^(m-2) with |z/R| bounded by |p|, so the column norms
+    # grow like |p|^M. For the complex-root materials |p| is about 1.2 and at
+    # M = 48 that is a spread of ~10^3, which a uniform Tikhonov weight
+    # tolerates. A material whose shear modulus is low enough to drive the
+    # characteristic equation into its real-root regime has a larger |p|: the
+    # psammitic schist at 0 degrees, with a measured G12 half the isotropic
+    # estimate, gives p = 1.816i and 1.068i and a spread of ~10^12. The columns
+    # then span thirty orders of magnitude, a single weight annihilates the
+    # small ones, the effective rank falls from 187 to 74 of 188, and the fit
+    # returns a field of zeros with a boundary residual of 0.78 against 0.006
+    # everywhere else.
+    #
+    # Scaling each column to unit norm makes the penalty act uniformly on the
+    # coefficients rather than on their arbitrary basis scaling, and the
+    # solution is unscaled afterwards, so nothing about the model changes. With
+    # the system equilibrated the weight can also be far smaller, and every
+    # specimen then reaches the same residual.
+    col_norm = np.linalg.norm(A, axis=0)
+    col_norm[col_norm == 0.0] = 1.0
+    A_scaled = A / col_norm
+
     if lam and lam > 0:
         lam = float(lam)
         reg = np.sqrt(lam) * np.eye(nunk, dtype=float)
-        A_aug = np.vstack([A, reg])
+        A_aug = np.vstack([A_scaled, reg])
         b_aug = np.concatenate([b, np.zeros(nunk)])
     else:
-        A_aug, b_aug = A, b
+        A_aug, b_aug = A_scaled, b
 
-    x, *_ = np.linalg.lstsq(A_aug, b_aug, rcond=1e-12)
+    x, *_ = np.linalg.lstsq(A_aug, b_aug, rcond=None)
+    x = x / col_norm
 
     # unpack to complex a1, a2
     a1 = np.zeros((M + 1,), dtype=complex)
@@ -233,21 +279,24 @@ def fit_orthotropic_airy_disk_auto(
     beta_deg: float = 10.0,
     smooth_deg: float = 4.0,
     mu: float = 0.0,
+    M: int = DEFAULT_M,
     Nbd: int = 480,
     Nbd_arc_each: int = 1200,
 ):
     """
     Light-weight "auto" wrapper. (You can extend it later to sweep M/lam.)
+
+    This is the production path, so ``M`` must track :data:`DEFAULT_M`.
     """
     return fit_orthotropic_airy_disk(
         E1, E2, nu12, G12,
         R=R, t=t, P=P,
         alpha=alpha,
-        M=24,
+        M=int(M),
         Nbd=Nbd,
         beta_deg=beta_deg,
         smooth_deg=smooth_deg,
         mu=mu,
-        lam=1e-10,
+        lam=DEFAULT_LAM,
         Nbd_arc_each=Nbd_arc_each,
     )

@@ -13,6 +13,8 @@ Lithology` passed to :func:`main`, so both rocks run one implementation.
 from __future__ import annotations
 
 
+import hashlib
+from tools import airy_solution as airy
 import os
 import numpy as np
 import pandas as pd
@@ -259,9 +261,21 @@ def main(rock):
         nu12_local = float(row["Poisson_Ratio"])
         G12 = modulus_to_Pa_from_csv(float(row["Shear_Modulus"])) if "Shear_Modulus" in df.columns else np.sqrt(E1 * E2) / (2.0 * (1.0 + nu12_local))
 
+        # Everything that changes the solved field goes into the key. The
+        # previous key carried only the specimen index, grid and spacing, so a
+        # change to the elastic constants, to PHYS or to the Airy series order
+        # returned a field solved under the old values. It did exactly that
+        # across an M = 24 to M = 48 change, silently.
+        stamp = hashlib.sha1(
+            repr((float(E1), float(E2), float(nu12_local), float(G12),
+                  float(diameter), float(thickness), float(theta_rad),
+                  int(airy.DEFAULT_M), sorted(PHYS.items(), key=repr))
+                 ).encode()
+        ).hexdigest()[:10]
         cache_path = os.path.join(
             cache_dir,
-            f"physics_v2_idx{idx}_N{grid_N}_sp{spacing_m:.6f}_t{target_sigma_xx_center_mpa:.3f}.npz"
+            f"physics_v2_idx{idx}_N{grid_N}_sp{spacing_m:.6f}"
+            f"_t{target_sigma_xx_center_mpa:.3f}_m{stamp}_v3.npz"
         )
 
         if os.path.exists(cache_path):

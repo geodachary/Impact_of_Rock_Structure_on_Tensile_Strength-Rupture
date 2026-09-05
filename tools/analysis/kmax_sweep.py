@@ -22,6 +22,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tools.data_io import load_specimen_table
+from pathlib import Path
+
 from tools import output_dirs
 
 # --- inherited from earlier notebook cells ---------------------------
@@ -360,6 +362,10 @@ def main():
     """
     CSV_PATH = "tensile_samples_data.csv"
     DATA_DIR = output_dirs.FIELDS_NPZ
+    # The last output path left over from before the tree moved: this wrote
+    # its figure into the repository root, where nothing else generated lives.
+    # Every other generator writes the same figure to both the output tree and
+    # the document directory, so this one does too.
     OUTPUT_FIG = "kmax_local_anisotropic_mixed_fraction.pdf"
     sample_ids_gneiss = range(1, 8)
     sample_ids_schist = range(8, 15)
@@ -430,6 +436,30 @@ def main():
     )
     best_kT_g = KT_RATIO * best_kC_g
     best_kT_s = KT_RATIO * best_kC_s
+
+    # Export the swept curve. Until now this analysis produced only a figure,
+    # so the adopted k_C had no machine-readable provenance and the value
+    # quoted in the text drifted from the value the sweep selects.
+    import pandas as _pd
+    _sweep = _pd.DataFrame({
+        "k_C": np.asarray(kmax_list, float),
+        "k_T": KT_RATIO * np.asarray(kmax_list, float),
+        "mixed_fraction_augen_gneiss": np.asarray(res_g["mixed_failed_mean"], float),
+        "mixed_fraction_psammitic_schist": np.asarray(res_s["mixed_failed_mean"], float),
+    })
+    _sweep["sd_augen_gneiss"] = np.asarray(res_g["mixed_failed_std"], float)
+    _sweep["sd_psammitic_schist"] = np.asarray(res_s["mixed_failed_std"], float)
+    _sweep["adopted_augen_gneiss"] = np.isclose(_sweep.k_C, best_kC_g)
+    _sweep["adopted_psammitic_schist"] = np.isclose(_sweep.k_C, best_kC_s)
+    _out = Path(output_dirs.tables()) / "kmax_softening_sweep.csv"
+    _sweep.to_csv(_out, index=False)
+    print(f"Sweep table saved to {_out}")
+    print(f"  specimen-to-specimen SD: gneiss "
+          f"{_sweep.sd_augen_gneiss.min():.2f}-{_sweep.sd_augen_gneiss.max():.2f}, "
+          f"schist {_sweep.sd_psammitic_schist.min():.2f}-"
+          f"{_sweep.sd_psammitic_schist.max():.2f} "
+          f"(mean level {_sweep.mixed_fraction_augen_gneiss.mean():.2f} and "
+          f"{_sweep.mixed_fraction_psammitic_schist.mean():.2f})")
     print(f"Best kC_max for Augen gneiss      : {best_kC_g:.3f}")
     print(f"Best kT_max for Augen gneiss      : {best_kT_g:.3f}")
     print(f"Best kC_max for Psammitic schist  : {best_kC_s:.3f}")
@@ -442,34 +472,33 @@ def main():
     if upper_s:
         print("[WARN] Psammitic schist curve is still near peak at the upper scan bound.")
     fig, ax = plt.subplots(figsize=(6.8, 4.4))
-    ax.plot(
-        kmax_list, res_g["mixed_failed_mean"],
-        marker="o", linestyle="-", linewidth=1.8, markersize=6,
-        label="Augen gneiss"
-    )
-    ax.plot(
-        kmax_list, res_s["mixed_failed_mean"],
-        marker="s", linestyle="-", linewidth=1.8, markersize=6,
-        label="Psammitic schist"
-    )
-    ax.fill_between(
-        kmax_list,
-        res_g["mixed_failed_mean"] - res_g["mixed_failed_std"],
-        res_g["mixed_failed_mean"] + res_g["mixed_failed_std"],
-        alpha=0.15
-    )
-    ax.fill_between(
-        kmax_list,
-        res_s["mixed_failed_mean"] - res_s["mixed_failed_std"],
-        res_s["mixed_failed_mean"] + res_s["mixed_failed_std"],
-        alpha=0.15
-    )
-    ax.plot(best_kC_g, res_g["mixed_failed_mean"][best_idx_g], "o", ms=8)
-    ax.plot(best_kC_s, res_s["mixed_failed_mean"][best_idx_s], "s", ms=8)
+    C_G, C_S = "#4C72B0", "#DD8452"
+    ax.plot(kmax_list, res_g["mixed_failed_mean"], marker="o", linestyle="-",
+            linewidth=1.8, markersize=5, color=C_G, label="Augen gneiss")
+    ax.plot(kmax_list, res_s["mixed_failed_mean"], marker="s", linestyle="-",
+            linewidth=1.8, markersize=5, color=C_S, label="Psammitic schist")
+
+    # The specimen-to-specimen standard deviation is larger than the mean it
+    # describes, 0.24 to 0.26 against a mean near 0.20, because the mixed
+    # fraction varies strongly with fabric angle within each lithology. Drawn
+    # on this axis it spans the whole panel, whether as a filled band or as
+    # error bars, and it buries the curve the panel exists to show. It is
+    # written to outputs/tables/kmax_softening_sweep.csv and quoted in the
+    # caption instead, which is where a number that large belongs.
+
+    # The adopted value. It sits at the smallest cap swept, so without padding
+    # it lands on the left spine with no tick beside it and reads as zero.
+    for best_k, best_i, res, col, mk in ((best_kC_g, best_idx_g, res_g, C_G, "o"),
+                                         (best_kC_s, best_idx_s, res_s, C_S, "s")):
+        ax.plot(best_k, res["mixed_failed_mean"][best_i], mk, ms=11,
+                mfc="none", mec=col, mew=2.2, zorder=5)
     ax.set_xlabel(r"$k_{C,\mathrm{max}}$")
     ax.set_ylabel("Mixed fraction among failed points")
-    ax.set_xlim(float(np.min(kmax_list)), float(np.max(kmax_list)))
-    ax.set_ylim(bottom=0.0)
+    lo, hi = float(np.min(kmax_list)), float(np.max(kmax_list))
+    pad = 0.03 * (hi - lo)
+    ax.set_xlim(lo - pad, hi + pad)
+    ax.set_xticks([0.05, 0.2, 0.4, 0.6, 0.8, 0.9])
+    ax.set_ylim(0.0, 0.35)
     ax.grid(True, alpha=0.35)
     leg = ax.legend(
         loc="upper left",
@@ -479,6 +508,8 @@ def main():
     )
     leg.get_frame().set_linewidth(1.2)
     plt.tight_layout()
-    plt.savefig(OUTPUT_FIG, dpi=300, bbox_inches="tight", format="pdf")
+    for _d in (output_dirs.figures(), output_dirs.ensure(output_dirs.DOC_DIR)):
+        _p = Path(_d) / OUTPUT_FIG
+        plt.savefig(_p, dpi=300, bbox_inches="tight", format="pdf")
+        print(f"Figure saved to {_p}")
     plt.show()
-    print(f"Figure saved to {OUTPUT_FIG}")

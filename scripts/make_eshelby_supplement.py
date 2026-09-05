@@ -116,7 +116,8 @@ def main():
 \small
 \caption{\rev{Bound on the stress fluctuation neglected by treating the augen gneiss as
 elastically homogeneous. Each row gives the uniform stress inside a single elliptical
-inclusion, from Eshelby's equivalent-inclusion solution, relative to the remote stress,
+inclusion, from Eshelby's equivalent-inclusion solution \citep{Eshelby1957}, relative to
+the remote stress,
 for the mean stress state computed at the centre of the $0^\circ$ gneiss disk. Phase
 moduli and inclusion shape were not measured on these specimens, so the matrix modulus
 is fixed at """ + f"{E_MATRIX_GPA:.0f}" + r"""~GPa and the contrast and axial ratio are swept over ranges
@@ -124,7 +125,7 @@ that bracket a feldspar--quartz aggregate in a micaceous matrix; the entries are
 therefore a bound, not a property of the rock. The largest concentration over the whole sweep is
 """ + f"{cmax:.2f}" + r""", reached by the most elongate and stiffest inclusion considered.
 Each entry lies below the rigid-inclusion limit for its own shape, which the same
-solution gives as """ + ", ".join(f"${rigid[a]:.2f}$ at ${a:.0f}\!:\!1$" for a in ASPECTS) + r"""
+solution gives as """ + ", ".join(rf"${rigid[a]:.2f}$ at ${a:.0f}\!:\!1$" for a in ASPECTS) + r"""
 at $\nu = 0.25$; elongation raises both the concentration and the limit it approaches,
 so the circular value of $1.50$ bounds only the circular case. The estimate is
 insensitive to the matrix Poisson ratio: repeating the sweep at the value measured on

@@ -17,6 +17,8 @@ import os
 import re
 import sys
 import argparse
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
@@ -250,6 +252,36 @@ def main(rock):
         fig_width_in=float(args.fig2_width_in),
         fig_height_in=float(args.fig2_height_in),
     )
+
+    # Export the per-specimen statistics the manuscript quotes. Until now this
+    # analysis produced only two figures, so the deviation medians in Section
+    # 4.5 had no machine-readable producer and could not be checked against
+    # anything. They are the last values in the paper without one.
+    import pandas as _pd
+    from tools import output_dirs as _od
+    rows = []
+    for r in sample_records:
+        dv = np.asarray(r["delta_deg"], float)
+        rows.append(dict(
+            sample_id=r["sid"], rock=r["rock"], angle_deg=r["ang_deg"],
+            n_points=int(dv.size),
+            delta_median_deg=float(np.median(dv)),
+            delta_abs_median_deg=float(np.median(np.abs(dv))),
+            delta_p25_deg=float(np.percentile(dv, 25)),
+            delta_p75_deg=float(np.percentile(dv, 75)),
+        ))
+    _df = _pd.DataFrame(rows).sort_values("sample_id")
+    _path = Path(_od.tables()) / "foliation_deviation_statistics.csv"
+    if _path.exists():                       # called once per lithology
+        try:
+            _prev = _pd.read_csv(_path)
+            if list(_prev.columns) == list(_df.columns):
+                _df = _pd.concat([_prev[~_prev.sample_id.isin(_df.sample_id)], _df],
+                                 ignore_index=True).sort_values("sample_id")
+        except Exception:
+            pass
+    _df.to_csv(_path, index=False)
+    print(f"  deviation statistics -> {_path}")
 
     plt.show()
     print("\nDone. Both revised figures written to:", out_dir)

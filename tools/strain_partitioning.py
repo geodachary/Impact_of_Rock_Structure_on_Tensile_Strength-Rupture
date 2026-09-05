@@ -31,8 +31,19 @@ import pandas as pd
 from . import lithology as lith
 from . import failure_classification as fc
 
-#: Mean-stress offsets (MPa) the published code applies, with its regime labels.
-REGIME_OFFSETS_MPA = {"Thrust": +0.50, "Strike-Slip": 0.00, "Extensional": -0.50}
+#: Mean-stress offsets (MPa), tension-positive, under the Anderson label each
+#: one represents. A thrust regime is the most confined of the three, so it
+#: carries the compressive (negative) offset and extension the tensile one.
+#:
+#: These labels were previously attached the other way round, inherited from
+#: the first version of this study. Nothing computed depended on the names, so
+#: the partition itself was unaffected, but every interpretation did: the case
+#: called "Thrust" carried +0.50 MPa, showed the largest weak-plane opening and
+#: matrix tensile shares of the three, and was then read in the text as the
+#: expected response to a compressive offset. It is the response to a tensile
+#: one. Swapping the labels leaves the three computed partitions identical and
+#: makes the names describe them.
+REGIME_OFFSETS_MPA = {"Thrust": -0.50, "Strike-Slip": 0.00, "Extensional": +0.50}
 
 #: Weak-plane strength proxies: no foliation-plane strength tests exist, so the
 #: weak-plane strengths are scaled from the measured matrix values.
@@ -120,7 +131,14 @@ def partition_specimen(sample_id, regime="Strike-Slip", strengths=None, root=Non
 
     d = np.load(npz, allow_pickle=True)
     p = strengths[int(sample_id)]
-    mask = d["M"].astype(bool)
+    # The disc interior, clear of the platen contacts, as used by every other
+    # field statistic here. The archived mask trims only the outermost ring of
+    # grid pixels, so partitioning over it lets the contact zone carry energy
+    # into classes it does not represent, and reports rim points where the
+    # boundary-traction fit residual is largest as material behaviour.
+    from . import fabric_tractions as _ft
+    _r = np.hypot(np.asarray(d["X"], float), np.asarray(d["Y"], float))
+    mask = d["M"].astype(bool) & (_r <= _ft.CORE_FRAC * float(d["R_m"]))
     U = np.where(mask, np.asarray(d["U_MPa"], float), 0.0)
 
     sxx, syy, txy = apply_mean_stress_offset(
@@ -176,6 +194,13 @@ def lithology_contrast(df: pd.DataFrame) -> pd.DataFrame:
     This is the table that demonstrates the two lithologies do not share a
     result. A zero difference row would indicate the rock-specific inputs are
     not reaching the calculation.
+
+    One exception is real rather than a fault. Matrix tensile failure is empty
+    in both lithologies once the partition is taken over the disc interior,
+    because the Mohr-Coulomb branch is reached first everywhere there, so
+    ``MT_pct`` is zero on both sides and its difference is zero for a reason
+    that has nothing to do with the inputs failing to arrive. It is flagged
+    separately so a genuine zero difference elsewhere still fails the check.
     """
     g = df[df.status == "computed"]
     cols = ["WT_pct", "WS_pct", "MT_pct", "MS_pct", "below_threshold_pct",
@@ -185,4 +210,8 @@ def lithology_contrast(df: pd.DataFrame) -> pd.DataFrame:
     piv.columns.name = None
     piv["difference"] = piv["Augen gneiss"] - piv["Psammitic schist"]
     piv["identical"] = piv["difference"].abs() < 1e-9
+    # Zero on both sides is not evidence that the inputs are shared.
+    both_zero = (piv["Augen gneiss"].abs() < 1e-12) & (piv["Psammitic schist"].abs() < 1e-12)
+    piv["identical"] = piv["identical"] & ~both_zero
+    piv["empty_in_both"] = both_zero
     return piv

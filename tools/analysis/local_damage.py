@@ -49,10 +49,10 @@ def robust_unit_interval(x, qlo=20.0, qhi=95.0, eps=1e-12):
 def resolve_local_damage_params(
     rock_type,
     *,
-    kC_gneiss=0.850,
-    kT_gneiss=0.297,
-    kC_schist=0.650,
-    kT_schist=0.227,
+    kC_gneiss=0.05,
+    kT_gneiss=0.0175,
+    kC_schist=0.05,
+    kT_schist=0.0175,
 ):
     """
     Resolve calibrated local softening caps by lithology.
@@ -92,10 +92,10 @@ def evaluate_failure_mode_local_damage(
     rock_type=None,
     kC_max=None,
     kT_max=None,
-    kC_gneiss=0.850,
-    kT_gneiss=0.297,
-    kC_schist=0.650,
-    kT_schist=0.227,
+    kC_gneiss=0.05,
+    kT_gneiss=0.0175,
+    kC_schist=0.05,
+    kT_schist=0.0175,
     pU=1.25,
     pWP=1.20,
     pS=1.10,
@@ -121,13 +121,20 @@ def evaluate_failure_mode_local_damage(
         D_t ~ kT_max * f(Uhat, tensile_w)
         D_s ~ kC_max * f(Uhat, wp_weight, shear_tendency, confinement)
 
-    Calibrated defaults:
-      - Augen gneiss:
-            kC_max = 0.850
-            kT_max = 0.297
-      - Psammitic schist:
-            kC_max = 0.650
-            kT_max = 0.227
+    Adopted caps
+    ------------
+    Both lithologies use kC_max = 0.05 with kT_max = 0.0175, the value the
+    sweep in ``kmax_sweep`` selects under its stated rule, the smallest cap
+    whose mean mixed-mode fraction reaches within 2% of the peak attained.
+
+    These were previously 0.850/0.297 for the augen gneiss and 0.650/0.227 for
+    the psammitic schist, labelled "calibrated defaults". The sweep had already
+    superseded them and the value was never propagated, so the module ran at a
+    cap seventeen times the adopted one while the manuscript reported 0.05.
+    Nothing published consumed these numbers, since this path writes no figure
+    or table, but anyone running it got a model the paper does not describe.
+    The sweep finds the same cap for both rocks, so they are no longer
+    lithology-specific.
 
     Failure checks:
       - tensile: s1 >= T_eff

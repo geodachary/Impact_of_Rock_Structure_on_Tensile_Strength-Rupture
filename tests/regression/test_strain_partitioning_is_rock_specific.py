@@ -66,8 +66,33 @@ def test_class_shares_sum_to_one_hundred(partition):
 
 
 def test_regime_offsets_are_the_documented_values():
-    assert sp.REGIME_OFFSETS_MPA == {"Thrust": +0.50, "Strike-Slip": 0.00,
-                                     "Extensional": -0.50}
+    """Tension-positive, so thrust is the compressive end and extension tensile.
+
+    This pinned the opposite pairing, inherited from the first version of the
+    study: "Thrust" carried +0.50 MPa. Nothing computed depended on the names,
+    so the three partitions were unaffected, but every interpretation was
+    inverted. The case called thrust showed the largest weak-plane opening and
+    matrix tensile shares of the three, and the text read that as the expected
+    response to a compressive offset when it is the response to a tensile one.
+
+    The mapping is asserted together with its consequence in the results, so a
+    silent swap back cannot pass by renaming alone.
+    """
+    assert sp.REGIME_OFFSETS_MPA == {"Thrust": -0.50, "Strike-Slip": 0.00,
+                                     "Extensional": +0.50}
+
+
+def test_the_tensile_classes_grow_toward_extension(partition):
+    """The physical check behind the labels, not just the labels themselves."""
+    g = partition[partition.status == "computed"]
+    for rock in ("Augen gneiss", "Psammitic schist"):
+        s = g[g.lithology == rock].groupby("regime")[["WT_pct", "MT_pct"]].mean()
+        for cls in ("WT_pct", "MT_pct"):
+            assert s.loc["Extensional", cls] > s.loc["Thrust", cls], (
+                f"{rock}: {cls} is not larger under extension "
+                f"({s.loc['Extensional', cls]:.2f}) than under thrust "
+                f"({s.loc['Thrust', cls]:.2f}). Either the offsets have been "
+                "relabelled again or the sign convention has changed.")
 
 
 def test_two_rock_figure_is_data_driven(tmp_path, partition):

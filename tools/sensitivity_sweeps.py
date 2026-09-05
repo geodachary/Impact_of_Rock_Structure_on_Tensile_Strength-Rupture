@@ -80,9 +80,9 @@ def _failed_fraction(d, spacing, Tm=None, Coh=None):
                   alpha_wp_line=d["alpha_wp"],
                   x=d["xg"], y=d["yg"],
                   weak_spacing=float(spacing), weak_bandwidth_frac=0.25,
-                  weak_floor=0.10, stress_sign_mode="auto")
+                  weak_floor=0.10, stress_sign_mode="tension_positive")
     else:
-        kw.update(strength_model="matrix", stress_sign_mode="auto")
+        kw.update(strength_model="matrix", stress_sign_mode="tension_positive")
     modes, *_ = failure_mode_map(
         d["sxx"], d["syy"], d["txy"], d["s1"],
         Tm=d["Tm"] if Tm is None else Tm,

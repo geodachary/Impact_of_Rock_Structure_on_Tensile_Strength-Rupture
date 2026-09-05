@@ -94,11 +94,13 @@ def get_uv_cached(idx, row):
         z = np.load(cache_path)
         return D, z["u"], z["v"]
 
-    if "compute_uv_for_sample" not in globals():
-        raise RuntimeError(
-            "compute_uv_for_sample(...) not found. "
-            "Run 'TRUE solver u' code first (the one that defines compute_uv_for_sample)."
-        )
+    # The solver lives in a sibling module. This used to look for it in this
+    # module's globals and raise if absent, which was true whenever the cache
+    # missed outside a notebook that happened to have defined it. The hash in
+    # the key above exists precisely so a change to the elastic constants
+    # invalidates the cache; leaving the only regeneration path unreachable
+    # meant that when the key did its job the run failed instead of recomputing.
+    from .displacement_profiles import compute_uv_for_sample
 
     X, Y, mask, u, v, meta = compute_uv_for_sample(
         D, t, E1_in, E2_in, nu, alpha, G_in,

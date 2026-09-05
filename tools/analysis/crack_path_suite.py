@@ -172,21 +172,43 @@ def contact_arc_weight(X, Y, R, beta_deg=10.0, smooth_deg=4.0):
     return np.clip(np.exp(-(dphi / width) ** 2) * np.exp(-((1.0 - rn) / 0.10) ** 2), 0.0, 1.0)
 
 
-def extend_to_circle(p0, p1, R):
+#: Kept identical to :data:`tools.analysis.crack_energy_suite.
+#: MAX_RIM_EXTENSION_FRAC`; ``test_rim_extension_is_capped`` pins the two
+#: together, because this module and that one carry separate copies of the
+#: extension helper and a cap applied to only one of them would leave the
+#: artefact alive on whichever path is taken.
+MAX_RIM_EXTENSION_FRAC = 0.02
+
+
+def extend_to_circle(p0, p1, R, max_extend=None):
+    """Carry the segment ``p0``-``p1`` out to the rim, or leave ``p1`` alone.
+
+    See :func:`tools.analysis.crack_energy_suite.extend_to_circle`; this is the
+    same routine, and the two must stay in step.
+    """
     x0, y0 = float(p0[0]), float(p0[1])
     x1, y1 = float(p1[0]), float(p1[1])
-    vx, vy = x1 - x0, y1 - y0
-    if vx * vx + vy * vy < 1e-20:
-        rr = np.hypot(x1, y1) + 1e-30
+    r1 = float(np.hypot(x1, y1))
+    cap = np.inf if max_extend is None else float(max_extend)
+
+    def _radial():
+        if (R - r1) > cap:
+            return x1, y1
+        rr = r1 + 1e-30
         return R * x1 / rr, R * y1 / rr
+
+    vx, vy = x1 - x0, y1 - y0
     A = vx * vx + vy * vy
+    if A < 1e-20:
+        return _radial()
     B = 2 * (x1 * vx + y1 * vy)
     C = x1 * x1 + y1 * y1 - R * R
     disc = B * B - 4 * A * C
     if disc < 0:
-        rr = np.hypot(x1, y1) + 1e-30
-        return R * x1 / rr, R * y1 / rr
+        return _radial()
     t = max((-B + np.sqrt(disc)) / (2 * A), (-B - np.sqrt(disc)) / (2 * A))
+    if t * np.sqrt(A) > cap:
+        return x1, y1
     return float(x1 + t * vx), float(y1 + t * vy)
 
 
@@ -232,9 +254,11 @@ def _collapse_curve(xs, ys, R, nbins=260, sw=11):
     P2 = np.outer(sb, u) + np.outer(tb_s, v)
     x2, y2 = P2[:, 0], P2[:, 1]
     if np.hypot(x2[0], y2[0]) < 0.98 * R and len(x2) >= 2:
-        x2[0], y2[0] = extend_to_circle((x2[1], y2[1]), (x2[0], y2[0]), R)
+        x2[0], y2[0] = extend_to_circle((x2[1], y2[1]), (x2[0], y2[0]), R,
+                                        max_extend=MAX_RIM_EXTENSION_FRAC * R)
     if np.hypot(x2[-1], y2[-1]) < 0.98 * R and len(x2) >= 2:
-        x2[-1], y2[-1] = extend_to_circle((x2[-2], y2[-2]), (x2[-1], y2[-1]), R)
+        x2[-1], y2[-1] = extend_to_circle((x2[-2], y2[-2]), (x2[-1], y2[-1]), R,
+                                          max_extend=MAX_RIM_EXTENSION_FRAC * R)
     return x2, y2
 
 
@@ -285,7 +309,7 @@ def build_guidance_fields(E1, E2, nu12, G12, R, t, P, alpha_const, alpha_wp_line
         weak_spacing=float(weak_spacing),
         weak_bandwidth_frac=0.25,
         weak_floor=0.10,
-        stress_sign_mode="auto",
+        stress_sign_mode="tension_positive",
         conf_k=0.65,
         wing_k=1.0,
         wing_p=2.0,
@@ -313,7 +337,7 @@ def build_guidance_fields(E1, E2, nu12, G12, R, t, P, alpha_const, alpha_wp_line
             util_min=0.98,
             n_theta_mc=int(fail_mc_nplanes),
             mc_compression_only=True, mc_sigma_comp_min=0.0,
-            stress_sign_mode="auto",
+            stress_sign_mode="tension_positive",
         )
     except Exception as _fc4_err:
         print(f"[4class] WARNING: adjacent call failed in build_guidance_fields: {_fc4_err}")
@@ -373,6 +397,10 @@ def tip_controls(tipx, tipy, R, ds0, X, Y, tensile_w_img, w_guid_img, w_load_img
 #: the path brittle to rounding; a quarter step absorbs that without
 #: letting the tip wander back into the interior.
 RETREAT_TOL_FRAC = 0.25
+
+#: Diagnostic hook, as in crack_energy_suite: when set to a list, one record
+#: per outer iteration of (step, mode, r/R, npoints).
+STEP_TRACE = None
 
 
 def energy_step_guided(xs_u, ys_u, R, alpha_const, airy_fit, E1, E2, nu12, G12, ds,
@@ -624,7 +652,7 @@ def build_fields_and_run(dfmeta_row, ds_frac=0.010, max_steps=1400, N_outer=80,
     else:
         fit = bd.fit_orthotropic_airy_disk(
             E1, E2, nu12, G12, R=R, t=t, P=P, alpha=alpha_const,
-            M=24, Nbd=int(airy_Nbd_base), beta_deg=float(platen_half_angle_deg),
+            Nbd=int(airy_Nbd_base), beta_deg=float(platen_half_angle_deg),
             smooth_deg=float(platen_smooth_deg), mu=float(platen_mu),
             lam=1e-8, w_arc=12.0, Nbd_arc_each=int(airy_Nbd_arc_each)
         )
@@ -657,6 +685,17 @@ def build_fields_and_run(dfmeta_row, ds_frac=0.010, max_steps=1400, N_outer=80,
     corr_cache = {}
     trace_rows = []
     stop_reason = "max_steps"
+    # A tip that stops advancing must stop the loop. Without this the stepper
+    # spends its whole 1400-step budget going nowhere, and because the DDM
+    # solve costs more as the crack lengthens, the cost of going nowhere grows
+    # cubically: the psammitic schist at 90 degrees reached 8 s per step
+    # against 0.3 s for its neighbours and had not finished after half an hour.
+    # crack_energy_suite has had this guard all along; this module had none.
+    STALL_PATIENCE = 40
+    best_r = -1.0
+    best_n = 2
+    best_trace_n = 0
+    stall = 0
     mode = "ENERGY"
     phys_burst = 4
     phys_left = 0
@@ -706,6 +745,11 @@ def build_fields_and_run(dfmeta_row, ds_frac=0.010, max_steps=1400, N_outer=80,
                 mode = "PHYS"
                 phys_left = int(max(1, phys_burst))
 
+        if STEP_TRACE is not None:
+            STEP_TRACE.append((step, mode,
+                               float(np.hypot(xs_u[-1], ys_u[-1])) / R,
+                               len(xs_u)))
+
         if mode == "PHYS":
             for _ in range(phys_left):
                 tx2, ty2 = float(xs_u[-1]), float(ys_u[-1])
@@ -718,9 +762,41 @@ def build_fields_and_run(dfmeta_row, ds_frac=0.010, max_steps=1400, N_outer=80,
                 c1 = float(wrap_pi_scalar(psi_line))
                 c2 = float(wrap_pi_scalar(psi_line + np.pi))
                 ps = c2 if abs(wrap_pi_scalar(c2 - psi_cur)) < abs(wrap_pi_scalar(c1 - psi_cur)) else c1
+
+                # ``energy_step_guided`` rejects a retreating candidate but this
+                # fallback did not, and the guidance field is a line field, so
+                # continuity alone can flip it inward. The tip then walks back
+                # and the loop spends its whole budget; because the SIF solve
+                # costs more as the crack lengthens, a wandering path is far
+                # more than proportionally expensive. Same guard, same
+                # tolerance, as the scan and as Section 3.7 of the manuscript.
+                _r_now = float(np.hypot(tx2, ty2))
+                _floor = _r_now - RETREAT_TOL_FRAC * float(ds2)
+                if float(np.hypot(tx2 + ds2 * np.cos(ps),
+                                  ty2 + ds2 * np.sin(ps))) < _floor:
+                    _other = c2 if ps == c1 else c1
+                    if float(np.hypot(tx2 + ds2 * np.cos(_other),
+                                      ty2 + ds2 * np.sin(_other))) >= _floor:
+                        ps = _other
+
                 nxp = float(tx2 + ds2 * np.cos(ps))
                 nyp = float(ty2 + ds2 * np.sin(ps))
-                if nxp * nxp + nyp * nyp >= (0.999 * R) ** 2:
+                _rn = float(np.hypot(nxp, nyp))
+                if _rn >= 0.999 * R:
+                    # Land the increment on the rim rather than discarding it.
+                    # Discarding created a dead zone: a tip parked between
+                    # r_end_frac (0.995 R) and this ceiling could not step,
+                    # because every candidate crossed the ceiling and was
+                    # thrown away, and could not finish, because it had not
+                    # reached r_end_frac. The psammitic schist at 90 degrees
+                    # sat at 0.9947 R for forty iterations and was recorded as
+                    # stalled, while the same specimen reached the rim in
+                    # crack_energy_suite, which already had this fix.
+                    nxp *= (0.999 * R) / (_rn + 1e-30)
+                    nyp *= (0.999 * R) / (_rn + 1e-30)
+                    xs_u.append(nxp)
+                    ys_u.append(nyp)
+                    psi_cur = float(ps)
                     break
                 # Measure the physics-guided step with the same SIF and
                 # energy machinery the scan uses, so it enters the trace
@@ -754,6 +830,32 @@ def build_fields_and_run(dfmeta_row, ds_frac=0.010, max_steps=1400, N_outer=80,
             phys_left = 0
             mode = "ENERGY"
 
+        # End of the iteration: has the tip advanced at all? Placed here, after
+        # both the energy step and the physics burst have had their chance, so
+        # an iteration that falls back to physics and then advances is not
+        # miscounted as a stall.
+        rr_now = float(np.hypot(xs_u[-1], ys_u[-1]))
+        if rr_now > best_r + 1e-12:
+            best_r = rr_now
+            best_n = len(xs_u)
+            best_trace_n = len(trace_rows)
+            stall = 0
+        else:
+            stall += 1
+            if stall >= STALL_PATIENCE:
+                stop_reason = "stalled"
+                break
+
+    # Keep only the advancing part, as crack_energy_suite does. The step trace
+    # has to be truncated with it: it is what fracture_energy.py reads to build
+    # the G/Gc statistics of Table B.5, so leaving the wandering steps in it
+    # would report an oscillation amplitude measured over a path the figures do
+    # not show. Both are cut at the iteration that reached the furthest radius.
+    if stop_reason == "stalled" and best_n >= 2:
+        xs_u = xs_u[:best_n]
+        ys_u = ys_u[:best_n]
+        trace_rows = trace_rows[:best_trace_n]
+
     xu = np.asarray(xs_u, float)
     yu = np.asarray(ys_u, float)
     xs = np.concatenate([(-xu)[::-1], xu[1:]])
@@ -761,9 +863,11 @@ def build_fields_and_run(dfmeta_row, ds_frac=0.010, max_steps=1400, N_outer=80,
 
     if len(xs) >= 4:
         if np.hypot(xs[0], ys[0]) < 0.98 * R:
-            xs[0], ys[0] = extend_to_circle((xs[1], ys[1]), (xs[0], ys[0]), R)
+            xs[0], ys[0] = extend_to_circle((xs[1], ys[1]), (xs[0], ys[0]), R,
+                                            max_extend=MAX_RIM_EXTENSION_FRAC * R)
         if np.hypot(xs[-1], ys[-1]) < 0.98 * R:
-            xs[-1], ys[-1] = extend_to_circle((xs[-2], ys[-2]), (xs[-1], ys[-1]), R)
+            xs[-1], ys[-1] = extend_to_circle((xs[-2], ys[-2]), (xs[-1], ys[-1]), R,
+                                              max_extend=MAX_RIM_EXTENSION_FRAC * R)
 
     if bool(postprocess_single_curve):
         xs, ys = postprocess_best_crack(xs, ys, R, float(pca_ratio_thresh))
@@ -889,14 +993,30 @@ def run_smoke_all(dfmeta, out_dir=output_dirs.FIELD_DIR, sample_ids=None, load_f
     # combined plots are figures, so they are left to default to the
     # figure directory rather than landing beside the CSVs.
     _make_all_combined_plots(results)
-    pd.DataFrame([
+    # One row per specimen, merged into whatever is already there. This is
+    # called once per lithology, and it used to overwrite: after the schist
+    # run the gneiss stop-reasons were gone, so the file never described more
+    # than half the dataset and could not be used to check that every path
+    # terminated properly.
+    summary = pd.DataFrame([
         dict(
             sample_id=r["sample_id"], rock=r["rock"], angle_deg=r["angle_deg"],
             R_m=r["R"], stop_reason=r["stop_reason"],
             nsteps=int(len(r["trace"].dropna(subset=["step"]))),
             Gc0=r["Gc0_internal_used"]
         ) for r in results
-    ]).to_csv(os.path.join(out_dir, "run_summary.csv"), index=False)
+    ])
+    summary_path = os.path.join(out_dir, "run_summary.csv")
+    if os.path.exists(summary_path):
+        try:
+            previous = pd.read_csv(summary_path)
+            if list(previous.columns) == list(summary.columns):
+                keep = previous[~previous.sample_id.isin(summary.sample_id)]
+                summary = pd.concat([keep, summary], ignore_index=True)
+        except Exception:
+            pass                      # unreadable or from an older schema
+    summary = summary.sort_values("sample_id").reset_index(drop=True)
+    summary.to_csv(summary_path, index=False)
     print(f"\n=== Done. Folder: {os.path.abspath(out_dir)} ===")
 
 

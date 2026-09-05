@@ -65,25 +65,15 @@ def robust_unit_interval(x, qlo=20.0, qhi=95.0, eps=1e-12):
 
 
 def resolve_local_damage_params(rock_type):
-    rock = str(rock_type).strip().lower()
-    rock = rock.replace("_", " ").replace("-", " ")
-    rock = " ".join(rock.split())
+    """Softening caps for this lithology, from the one module that owns them.
 
-    if "augen" in rock and "gneiss" in rock:
-        return float(KCMAX_AUGEN_GNEISS), float(KTMAX_AUGEN_GNEISS)
-
-    if "schist" in rock and (
-        "psammatic" in rock or
-        "psammitic" in rock or
-        "psammat" in rock or
-        "psammit" in rock
-    ):
-        return float(KCMAX_PSAMMATIC_SCHIST), float(KTMAX_PSAMMATIC_SCHIST)
-
-    raise ValueError(
-        f"Unrecognized rock type: {rock_type!r}. "
-        "Expected Augen gneiss or Psammatic or Psammitic schist."
-    )
+    This was a second copy of the resolver in ``local_damage``, reading four
+    module-level names that are only bound when ``main`` runs. Calling it
+    before then raised ``NameError``, and after then it could return values
+    that module did not agree with. It now delegates, so there is one source.
+    """
+    from .local_damage import resolve_local_damage_params as _resolve
+    return _resolve(rock_type)
 
 
 def anisotropic_tensile_strength(base_T, anis_angle, crack_plane_angle,
@@ -97,15 +87,21 @@ def anisotropic_tensile_strength(base_T, anis_angle, crack_plane_angle,
     spacing           : foliation spacing (m)
     x, y              : coordinates (m)
     """
-    dphi = angle_diff_periodic(anis_angle, crack_plane_angle)
+    # Delta is measured from the foliation NORMAL: Delta = 0 is a crack
+    # running across the planes, Delta = pi/2 one running along them. The
+    # caller supplies the foliation line direction, so the normal is that
+    # plus pi/2.
+    normal = float(anis_angle) + np.pi / 2.0
+    dphi = angle_diff_periodic(normal, crack_plane_angle)
     ang_fac = np.cos(dphi)**2
 
     if spacing is not None and spacing > 0.0 and (x is not None) and (y is not None):
-        ca = np.cos(anis_angle)
-        sa = np.sin(anis_angle)
-        xp = ca * x + sa * y
-        # banded weakening pattern with period ~ spacing
-        space_fac = np.cos(np.pi * xp / spacing)**2
+        ca = np.cos(normal)
+        sa = np.sin(normal)
+        xp = ca * x + sa * y            # offset along the foliation normal
+        # Minimum on an interface, intact value midway between interfaces.
+        # cos^2 here would put the strongest material on the weak planes.
+        space_fac = np.sin(np.pi * xp / spacing)**2
     else:
         space_fac = 1.0
 
@@ -200,14 +196,20 @@ def evaluate_failure_mode_mohr_coulomb_local(
       D_t ~ kT_max * f(Uhat, tensile_w)
       D_s ~ kC_max * f(Uhat, wp_weight, shear_tendency, confinement)
 
-    Calibrated defaults
-    -------------------
-      - Augen gneiss:
-            kC_max = 0.850
-            kT_max = 0.297
-      - Psammitic schist:
-            kC_max = 0.650
-            kT_max = 0.227
+    Adopted caps
+    ------------
+    Both lithologies use kC_max = 0.05 with kT_max = 0.0175, the value the
+    sweep in ``kmax_sweep`` selects under its stated rule, the smallest cap
+    whose mean mixed-mode fraction reaches within 2% of the peak attained.
+
+    These were previously 0.850/0.297 for the augen gneiss and 0.650/0.227 for
+    the psammitic schist, labelled "calibrated defaults". The sweep had already
+    superseded them and the value was never propagated, so the module ran at a
+    cap seventeen times the adopted one while the manuscript reported 0.05.
+    Nothing published consumed these numbers, since this path writes no figure
+    or table, but anyone running it got a model the paper does not describe.
+    The sweep finds the same cap for both rocks, so they are no longer
+    lithology-specific.
 
     Failure criteria
     ----------------
@@ -431,10 +433,6 @@ def main():
     heterogeneity_levels = [0.00, 0.10, 0.20, 0.30, 0.40]
     POINTS_PER_ROW = 50
     sample_ids = range(1, 15)
-    KCMAX_AUGEN_GNEISS = 0.850
-    KTMAX_AUGEN_GNEISS = 0.297
-    KCMAX_PSAMMATIC_SCHIST = 0.650
-    KTMAX_PSAMMATIC_SCHIST = 0.227
     MC_COMPRESSION_ONLY = True
     P_U = 1.25
     P_WP = 1.20

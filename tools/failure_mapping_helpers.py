@@ -26,31 +26,52 @@ def _wrap_pi_half(a: float) -> float:
 # ============================================================
 
 def _detect_stress_sign_mode(s1, sxx=None, syy=None):
-    """
-    Heuristic:
-      - If most of field is compressive, median(s1) < 0 (tension-positive convention)
-      - If most of field is compressive but positive values dominate, then it's compression-positive.
+    """Infer the sign convention from the ordering of the principal stresses.
+
+    The previous rule looked at the *median* of ``s1`` and concluded
+    "compression-positive" whenever it was positive with any negatives present.
+    A Brazilian disc satisfies exactly that and is tension-positive: ``s1`` is
+    the maximum principal stress, which over most of the interior is the
+    tensile horizontal stress, while the platen zones supply the negatives.
+    The rule therefore negated every field it was given here, which drove
+    ``R_MT = max(s1, 0) / T_m`` to zero and removed matrix tensile failure from
+    the classification entirely.
+
+    Sign cannot be read from where the mass of one array sits. What does
+    distinguish the conventions is the relation between ``s1`` and the trace:
+    in a tension-positive field ``s1`` is the algebraically largest principal
+    stress, so ``s1 >= (sxx + syy) / 2`` at every point. Under a
+    compression-positive convention ``s1`` is the largest *compressive* stress
+    and that inequality is violated wherever the state is not hydrostatic.
+    That is a structural property of the convention rather than a property of
+    the loading, so it holds for any geometry.
+
+    With ``sxx``/``syy`` unavailable the convention cannot be inferred at all,
+    and the caller is told so by falling back to tension-positive, which is the
+    convention every solver in this repository produces.
     """
     s1 = np.asarray(s1, float)
     s1f = s1[np.isfinite(s1)]
     if s1f.size < 10:
         return "tension_positive"
 
-    med = float(np.median(s1f))
-    mx = float(np.max(s1f))
-    mn = float(np.min(s1f))
-
-    # Brazilian disk typically has mixed signs; compressive regions large.
-    # If median is negative -> likely tension-positive (compression negative).
-    if med < 0:
+    if sxx is None or syy is None:
         return "tension_positive"
 
-    # If median positive but we still see negatives -> ambiguous; assume compression-positive.
-    if mn < 0 and mx > 0 and med > 0:
-        return "compression_positive"
+    sxx = np.asarray(sxx, float)
+    syy = np.asarray(syy, float)
+    mean_normal = 0.5 * (sxx + syy)
+    ok = np.isfinite(s1) & np.isfinite(mean_normal)
+    if not np.any(ok):
+        return "tension_positive"
 
-    # fallback
-    return "tension_positive"
+    # Allow a small tolerance so rounding at near-hydrostatic points does not
+    # decide the answer.
+    scale = max(float(np.nanmax(np.abs(s1f))), 1e-12)
+    violations = float(np.mean(s1[ok] < mean_normal[ok] - 1e-9 * scale))
+
+    # A tension-positive field cannot violate s1 >= (sxx+syy)/2 anywhere.
+    return "compression_positive" if violations > 0.5 else "tension_positive"
 
 
 def _to_tension_positive(sxx, syy, txy, s1, stress_sign_mode="auto"):
