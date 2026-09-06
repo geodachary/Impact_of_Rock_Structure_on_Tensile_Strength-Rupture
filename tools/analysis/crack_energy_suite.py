@@ -60,10 +60,12 @@ from tools.ddm import (  # noqa: F401
     _grid_axes_from_mesh, _grid_cell_area, _img_from_mask,
     _polyline_length, _thin_points_for_glyphs, bilinear_sample_scalar,
     build_psi_pref_field, compute_wp_weight_img,
-    disk_failure_stats_all_points, get_anisotropy_ratio,
+    disk_failure_stats_all_points, get_anisotropy_ratio, get_material_axes,
     save_full_fields_npz,
     strain_energy_density_ortho_plane_stress_material,
 )
+from tools.lithology import repo_relative
+from tools.ddm._toolkit import ROCK_ANISO_RATIO as _CANONICAL_ANISO_RATIO
 
 
 
@@ -970,6 +972,33 @@ def compact_axis_labels(ax, row, col, nrows, ncols,
 
 
 
+
+def _foliation_warp_field(X, Y, amp_m, corr_len_m=0.008, seed=123):
+    """Smooth random displacement of the weak planes, in metres.
+
+    Returns a field with zero mean and standard deviation ``amp_m``, spatially
+    correlated over ``corr_len_m``. Added to the plane-normal coordinate it
+    makes the foliation anastomose rather than run as a set of exact parallel
+    lines. ``amp_m`` is ``Lithology.spacing_warp_amp_m``, 2 mm in the gneiss
+    and 0.4 mm in the schist.
+    """
+    X = np.asarray(X, float)
+    if not np.isfinite(amp_m) or amp_m <= 0.0:
+        return np.zeros_like(X)
+    dx = float(abs(X[0, 1] - X[0, 0])) if X.shape[1] > 1 else 1.0
+    rng = np.random.default_rng(int(seed))
+    w = rng.standard_normal(X.shape)
+    ky = np.fft.fftfreq(X.shape[0], d=dx) * 2.0 * np.pi
+    kx = np.fft.fftfreq(X.shape[1], d=dx) * 2.0 * np.pi
+    KX, KY = np.meshgrid(kx, ky)
+    filt = np.exp(-0.25 * (KX ** 2 + KY ** 2) * float(corr_len_m) ** 2)
+    f = np.real(np.fft.ifft2(np.fft.fft2(w) * filt))
+    sd = float(f.std())
+    if sd <= 0:
+        return np.zeros_like(X)
+    return (f - f.mean()) / sd * float(amp_m)
+
+
 def main(rock):
     """Run this section for one lithology.
 
@@ -1035,11 +1064,8 @@ def main(rock):
       - nu12 read per specimen from CSV column Poisson_Ratio
         (--nu12 is only the fallback when the column is absent)
     """
-    ROCK_ANISO_RATIO = {
-        "augen gneiss": 2.037,
-        "psammitic schist": 3.763,
-        "psammatic schist": 3.763,   # historical spelling, still accepted
-    }
+    # One dict, defined in _toolkit and derived from the replicate table.
+    ROCK_ANISO_RATIO = dict(_CANONICAL_ANISO_RATIO)
     p = argparse.ArgumentParser("Brazilian disk — energy-based DDM (hybrid)", allow_abbrev=False)
 
     p.add_argument("--meta_csv", default="tensile_samples_data.csv")
@@ -1190,9 +1216,14 @@ def main(rock):
         nu12 = float(nu_in) if np.isfinite(float(nu_in)) else float(args.nu12)
 
         anis_ratio = get_anisotropy_ratio(rock)
-        E1 = modulus_to_MPa(E1_in)
-        G12 = modulus_to_MPa(G12_in)
-        E2 = E1 / anis_ratio
+        # Foliation-frame constants, read once per lithology. The solver
+        # rotates this tensor to the specimen's fabric angle, so the
+        # per-specimen apparent moduli must not be substituted here.
+        _mx = get_material_axes(rock)
+        E1 = modulus_to_MPa(_mx["E1"])
+        E2 = modulus_to_MPa(_mx["E2"])
+        G12 = modulus_to_MPa(_mx["G12"])
+        nu12 = float(_mx["nu12"])
 
         alpha_const = float(map_angle_to_alpha(float(ang_deg), angle_map=str(args.angle_map)))
         alpha_wp_line = wrap_pi_half_scalar(alpha_const)
@@ -1321,10 +1352,28 @@ def main(rock):
         conf_img = np.full_like(X, 0.0, float)
         conf_img[M] = conf
 
+        # The foliation is not planar. Displace each weak plane by a smooth
+        # random field of the measured warp amplitude for this lithology, so
+        # the family anastomoses instead of being perfectly straight. Without
+        # it a crack running along a plane, which is what happens once the
+        # fabric is loading-parallel, comes out as an exact straight line.
+        # The amplitude and correlation length are the ones already used by
+        # the stress-field, displacement and DDM modules.
+        _warp = _foliation_warp_field(
+            X, Y, amp_m=float(_rock().spacing_warp_amp_m),
+            corr_len_m=0.008, seed=123)
+        # Local direction scatter as well as local displacement. Without it
+        # the planes stay parallel and a crack running along one is exactly
+        # straight, which is what happened at 90 degrees in both rocks. The
+        # amplitude is the 3.5 degrees the other field modules already use.
+        _adev = _foliation_warp_field(X, Y, amp_m=1.0, corr_len_m=0.008,
+                                      seed=124)
+        _alpha_field = float(alpha_wp_line) + np.deg2rad(3.5) * _adev
         wp_weight_img = compute_wp_weight_img(
-            X, Y, alpha_wp_line=float(alpha_wp_line),
+            X, Y, alpha_wp_line=_alpha_field,
             spacing=float(args.weak_spacing_m),
             bandwidth_frac=float(args.wp_bandwidth_frac),
+            phase=_warp,
         )
         w_load_img = contact_arc_weight(
             X, Y, R,
@@ -1551,9 +1600,9 @@ def main(rock):
         fig_stress.savefig(out_pdf_stress, dpi=300, bbox_inches="tight", pad_inches=0.08, transparent=True)
         fig_energy.savefig(out_pdf_energy, dpi=300, bbox_inches="tight", pad_inches=0.08, transparent=True)
 
-        print(f"\n✓ Saved: {out_pdf_stress}")
-        print(f"✓ Saved: {out_pdf_energy}")
-        print(f"✓ Stats: {stats_path}")
+        print(f"\n✓ Saved: {repo_relative(out_pdf_stress)}")
+        print(f"✓ Saved: {repo_relative(out_pdf_energy)}")
+        print(f"✓ Stats: {repo_relative(stats_path)}")
 
     if args.save_fields_npz:
         print(f"✓ Full fields (.npz) saved in: {field_dir}")

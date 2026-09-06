@@ -29,16 +29,12 @@ dependencies = [
 test = ["pytest>=7.4"]
 notebook = ["jupyter", "nbconvert>=7.0", "nbformat>=5.9", "nbclient>=0.9", "ipykernel"]
 
-[project.scripts]
-reproduce-all = "scripts.reproduce_all:main"
-
 [tool.setuptools]
 # Subpackages must be listed explicitly: a flat `packages` list is not
 # recursive, so tools.ddm and tools.analysis would be absent from an install.
+# ``scripts`` is deliberately not installed: it is run in place from a clone,
+# as the README describes, and it reads and writes repository-relative paths.
 packages = ["tools", "tools.ddm", "tools.analysis"]
-
-[tool.setuptools.package-data]
-tools = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

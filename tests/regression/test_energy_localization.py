@@ -29,14 +29,22 @@ def test_gneiss_never_forms_a_corridor():
 
 
 @needs_fields
-def test_schist_forms_a_corridor_only_at_high_fabric_angle():
+def test_schist_forms_a_corridor_only_at_the_fabric_end_members():
+    """The corridor sits at 0, 15 and 90 degrees.
+
+    It formed at 60-90 degrees while E1/E2 was the adopted 3.763, and only at
+    0 and 15 while the elastic constants were still read per specimen. With
+    the material-axis constants it forms where the foliation is either normal
+    to the loading axis or parallel to it, and the elevated region is two
+    lobes at every intermediate angle.
+    """
     t = el.localization_table()
     s = t[t.rock == "Psammitic schist"]
     formed = set(s.loc[s.corridor, "angle_deg"])
-    assert formed == {60.0, 75.0, 90.0}, f"corridor angles moved: {sorted(formed)}"
+    assert formed == {0.0, 15.0, 90.0}, f"corridor angles moved: {sorted(formed)}"
     assert s.loc[s.corridor, "n_components"].eq(1).all()
     assert s.loc[s.corridor, "elongation"].min() > 4.0
-    # below 60 degrees the schist is indistinguishable from the gneiss
+    # above 15 degrees the schist is indistinguishable from the gneiss
     assert s.loc[~s.corridor, "n_components"].eq(2).all()
 
 
@@ -53,4 +61,4 @@ def test_summary_matches_the_caption():
     s = el.summary().set_index("rock")
     assert int(s.loc["Augen gneiss", "n_corridor"]) == 0
     assert int(s.loc["Psammitic schist", "n_corridor"]) == 3
-    assert s.loc["Psammitic schist", "max_elongation"] == pytest.approx(4.84, abs=0.05)
+    assert s.loc["Psammitic schist", "max_elongation"] == pytest.approx(4.79, abs=0.05)

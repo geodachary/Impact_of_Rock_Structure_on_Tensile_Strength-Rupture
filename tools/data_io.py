@@ -52,6 +52,12 @@ def load_replicate_table(root=None) -> pd.DataFrame:
     df.columns = [c.strip() for c in df.columns]
     if "Rock_type" not in df.columns:
         raise ValueError(f"{REPLICATES} has no Rock_type column")
+    # Spreadsheet exports carry trailing rows that are blank in every column.
+    # They are not specimens, and mapping them raises on the Rock_type value,
+    # so drop them before canonicalising rather than after.
+    blank = df.isna().all(axis=1)
+    if blank.any():
+        df = df.loc[~blank].copy()
     df["Rock_type"] = df["Rock_type"].map(canonical_rock_type)
     return df
 

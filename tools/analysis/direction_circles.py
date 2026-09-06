@@ -28,9 +28,11 @@ from tools import output_dirs
 
 # --- inherited from earlier notebook cells ---------------------------
 from tools.ddm import (  # noqa: F401
-    clip_to_disk, downsample_mask, get_anisotropy_ratio,
+    clip_to_disk, downsample_mask, get_anisotropy_ratio, get_material_axes,
     plot_direction_circle, reconstruct_grid,
 )
+from tools.lithology import repo_relative
+from tools.ddm._toolkit import ROCK_ANISO_RATIO as _CANONICAL_ANISO_RATIO
 
 
 
@@ -71,10 +73,12 @@ def get_uv_cached(idx, row):
     rock = str(row["Rock_type"])
     anis_ratio = get_anisotropy_ratio(rock)
 
-    E1_in = float(row["Modulus_of_Elasticity"])
-    E2_in = float(E1_in) / float(anis_ratio)
-    nu = float(row["Poisson_Ratio"])
-    G_in = float(row["Shear_Modulus"]) if "Shear_Modulus" in row.index else np.nan
+    # Foliation-frame constants, per lithology; see get_material_axes.
+    _mx = get_material_axes(rock)
+    E1_in = float(_mx["E1"])
+    E2_in = float(_mx["E2"])
+    nu = float(_mx["nu12"])
+    G_in = float(_mx["G12"])
 
     spacing_m = float(row["Spacing_m"]) if "Spacing_m" in row.index else float(SPACING_DEFAULT_M)
 
@@ -134,11 +138,8 @@ def main(rock):
         row_id, rr, sample_list, tick_params, title, u, v, valid, vals, \
         vmax
     _bind(rock)
-    ROCK_ANISO_RATIO = {
-        "augen gneiss": 2.037,
-        "psammitic schist": 3.763,
-        "psammatic schist": 3.763,   # historical spelling, still accepted
-    }
+    # One dict, defined in _toolkit and derived from the replicate table.
+    ROCK_ANISO_RATIO = dict(_CANONICAL_ANISO_RATIO)
     output_dir = os.path.join(os.getcwd(), output_dirs.FIGURE_DIR)
     os.makedirs(output_dir, exist_ok=True)
     cache_dir = os.path.join(output_dirs.fields(), "_cache_direction_circles_uv_v2")
@@ -288,6 +289,6 @@ def main(rock):
     outpath = os.path.join(output_dir, f"{_rock().key}_direction_circles.pdf")
     plt.savefig(outpath, dpi=300, bbox_inches="tight", format="pdf")
     plt.show()
-    print(f"Saved: {outpath}")
+    print(f"Saved: {repo_relative(outpath)}")
     print(f"Color vmax (p{COLOR_PERCENTILE:.0f}) = {vmax:.3e} mm")
-    print(f"Cache dir: {cache_dir}")
+    print(f"Cache dir: {repo_relative(cache_dir)}")

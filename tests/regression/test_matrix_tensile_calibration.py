@@ -152,27 +152,22 @@ def test_a_ucs_anchored_envelope_recovers_matrix_tensile():
         m = d["M"].astype(bool)
         return float(np.mean(res["mode_code"][m] == fc.CLASS_CODES["MT"]))
 
-    # The two specimens where the anchoring choice matters most, and it moves
-    # MT between them rather than simply scaling it: re-anchoring removes MT
-    # from the gneiss at 0 deg and roughly doubles it in the schist at 15 deg.
+    # Under the measured anisotropy ratios matrix tensile is empty, and it is
+    # empty under both anchorings, so the anchoring choice no longer moves it.
+    # While the adopted ratios were in force MT held 0.120 of the gneiss
+    # interior at 0 degrees and re-anchoring removed it; that comparison is
+    # withdrawn. Section 4.6 now reports the class as absent.
     g_adopted = mt_fraction(1, use_ucs_anchor=False)
     g_anchored = mt_fraction(1, use_ucs_anchor=True)
     s_adopted = mt_fraction(9, use_ucs_anchor=False)
     s_anchored = mt_fraction(9, use_ucs_anchor=True)
 
-    assert g_adopted > 0.05, (
-        f"MT is {g_adopted:.3f} of the gneiss at 0 deg under the adopted "
-        "calibration. Section 4.6 reports it as present and substantial there; "
-        "if it has vanished, the cohesion column has moved again."
-    )
-    assert s_adopted > 0.001, (
-        f"MT is {s_adopted:.4f} in the schist at 15 deg; the text reports it "
-        "as present at every intermediate schist orientation"
-    )
-    assert g_anchored < g_adopted, (
-        "re-anchoring should remove MT from the gneiss at 0 deg, which is what "
-        "the supplementary figure records"
-    )
-    assert s_anchored > s_adopted, (
-        "re-anchoring should raise MT in the schist at 15 deg"
-    )
+    for label, v in (("gneiss 0 deg, adopted", g_adopted),
+                     ("gneiss 0 deg, UCS-anchored", g_anchored),
+                     ("schist 15 deg, adopted", s_adopted),
+                     ("schist 15 deg, UCS-anchored", s_anchored)):
+        assert v <= 0.001, (
+            f"matrix tensile has reappeared at {label}: {v:.4f}. Sections 3.7 "
+            "and 4.6 report the class as empty; if it is back, both need "
+            "revisiting rather than silently agreeing again."
+        )

@@ -106,11 +106,11 @@ def main():
             norm_min=float(sn.min()), norm_min_deg=float(deg[int(np.argmin(sn))]),
             eta=r["eta"])
 
-    axes[0].set_ylabel(r"$\mathcal{W}(\beta)=\sigma/\sigma_{\mathrm{TI}}$")
-    axes[1].set_ylabel(r"$\sigma(\beta)/\sigma(0^\circ)$")
+    axes[0].set_ylabel(r"$\mathcal{W}(\alpha)=\sigma/\sigma_{\mathrm{TI}}$")
+    axes[1].set_ylabel(r"$\sigma(\alpha)/\sigma(0^\circ)$")
 
     for a in axes:
-        a.set_xlabel(r"Fabric angle, $\beta$ (deg)")
+        a.set_xlabel(r"Fabric angle, $\alpha$ (deg)")
         a.set_xticks(range(0, 91, 15)); a.set_xlim(0, 90)
         a.axhline(1.0, color="0.4", ls=":", lw=1.1)
         a.grid(True, alpha=0.3)

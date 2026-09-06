@@ -867,8 +867,17 @@ def weak_plane_weight_field(X, Y, alpha_wp_line, spacing, phase=0.0, bandwidth_f
     if spacing <= 0:
         return np.zeros_like(X, float)
 
-    n_ang = float(alpha_wp_line) + np.pi/2.0  # normal direction
-    d = X*np.cos(n_ang) + Y*np.sin(n_ang) + float(phase)
+    # ``alpha_wp_line`` may be a scalar or a field. A field lets the plane
+    # direction vary locally, which is what makes a real foliation
+    # anastomose: shifting the planes sideways alone keeps them parallel, so
+    # a crack running along one stays a straight line.
+    n_ang = np.asarray(alpha_wp_line, float) + np.pi/2.0  # normal direction
+    # ``phase`` may be a scalar, giving a family of perfectly straight evenly
+    # spaced planes, or a field of the same shape as X, which displaces each
+    # plane locally and makes the family anastomose the way a real foliation
+    # does. A real fabric is not planar, and with a scalar phase the crack that
+    # runs along a plane at 90 degrees is a mathematically exact straight line.
+    d = X*np.cos(n_ang) + Y*np.sin(n_ang) + np.asarray(phase, float)
 
     # map to nearest plane distance in [-spacing/2, spacing/2]
     dd = ((d + 0.5*spacing) % spacing) - 0.5*spacing

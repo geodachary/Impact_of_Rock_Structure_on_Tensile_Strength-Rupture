@@ -20,6 +20,34 @@ from . import output_dirs
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+
+def resolve_repo_path(path):
+    """Inverse of :func:`repo_relative`: make a stored path openable.
+
+    Provenance columns are serialized relative to the repository so they are
+    portable. Anything that reads one back and opens it must join it onto the
+    root rather than trust the working directory, or the read succeeds only
+    when the caller happens to be standing in the repository.
+    """
+    p = Path(path)
+    return p if p.is_absolute() else REPO_ROOT / p
+
+
+def repo_relative(path):
+    """Repo-relative POSIX string for a path, for anything written to disk.
+
+    Provenance columns record which input produced each row. Serialized as
+    absolute paths they carry the author's home directory into a public
+    archive and resolve nowhere on another machine, so the stored form is
+    relative to the repository root. Paths outside the repo are returned
+    unchanged. Callers that need to open the file join it back onto
+    REPO_ROOT.
+    """
+    try:
+        return Path(path).resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
 ANGLES_DEG = (0, 15, 30, 45, 60, 75, 90)
 
 #: Historical misspellings seen in generated filenames, mapped to the canonical token.

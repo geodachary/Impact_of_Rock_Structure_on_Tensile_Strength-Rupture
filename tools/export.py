@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .lithology import REPO_ROOT
+from .lithology import REPO_ROOT, repo_relative
 from . import output_dirs
 
 DEFAULT_OUT = REPO_ROOT / output_dirs.TABLE_DIR
@@ -30,12 +30,25 @@ def _clean(rows):
     return [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
 
 
+def _rel(path):
+    """Idempotent guard: provenance columns leave here repo-relative.
+
+    ``traces.compare_specimen`` already stores the relative form. This catches
+    any caller that hands in an absolute path, so one rule governs what these
+    tables serialize. See ``lithology.repo_relative`` for why.
+    """
+    return repo_relative(path)
+
+
 def write_trace_metrics(rows, out=None):
     """Specimen-level observed-vs-predicted comparison table."""
     out = Path(out or DEFAULT_OUT)
     out.mkdir(parents=True, exist_ok=True)
     out = out / "trace_comparison_metrics.csv"
     df = pd.DataFrame(_clean(rows))
+    for col in ("observed_source", "predicted_source"):
+        if col in df.columns:
+            df[col] = df[col].map(_rel)
     df.to_csv(out, index=False)
     return out
 
@@ -50,9 +63,10 @@ def write_pairing_manifest(rows, out=None):
         recs.append(dict(
             sample=r["sample"], lithology=r["lithology"],
             experimental_angle_deg=r["experimental_angle_deg"],
-            observed_path=r["observed_source"], predicted_path=r["predicted_source"],
-            observed_exists=Path(r["observed_source"]).exists(),
-            predicted_exists=Path(r["predicted_source"]).exists(),
+            observed_path=_rel(r["observed_source"]),
+            predicted_path=_rel(r["predicted_source"]),
+            observed_exists=(REPO_ROOT / r["observed_source"]).exists(),
+            predicted_exists=(REPO_ROOT / r["predicted_source"]).exists(),
             observed_columns="col0=x[m], col1=y[m] (headerless)",
             predicted_columns="order,x_m,y_m",
             units="m", disc_radius_m=0.0255,
@@ -102,7 +116,8 @@ def write_orientation_validation(rows, out=None):
                 "constrains; they do not select the domain"),
             observed_dominant_mechanism=("unclassifiable - a digitized trace carries no "
                                          "displacement or surface evidence"),
-            data_source_path=f"{r['observed_source']} | {r['predicted_source']}",
+            data_source_path=f"{_rel(r['observed_source'])} | "
+                             f"{_rel(r['predicted_source'])}",
             status=r.get("status"), reason=r.get("reason", "")))
     pd.DataFrame(recs).to_csv(out, index=False)
     return out

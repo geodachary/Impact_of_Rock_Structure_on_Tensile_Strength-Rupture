@@ -16,16 +16,16 @@ Alternative: cohesion re-anchored so the envelope reproduces that UCS exactly,
 
     c = UCS (1 - sin phi) / (2 cos phi),
 
-with nothing else changed. Re-anchoring does not simply scale the tensile
-class, it moves it between the rocks: matrix tensile disappears from the augen
-gneiss at 0 degrees and roughly doubles in the psammitic schist at 15 degrees.
+with nothing else changed.
 
-This began as a supplementary figure showing that matrix tensile was empty
-under the adopted calibration and appeared only under re-anchoring. The
-corrected cohesion values withdrew that result, matrix tensile is present
-under the adopted calibration, and the figure was retired from the manuscript.
-The measurement it rested on is still worth keeping, so it is written here as
-a table that the two quoted percentages can be traced to.
+The history of this check is worth recording. It began as a supplementary
+figure showing that matrix tensile was empty under the adopted calibration
+and appeared only under re-anchoring. Corrected cohesion values withdrew that
+result and matrix tensile became present, so the figure was retired. Moving
+from the adopted anisotropy ratios to the measured ones has emptied the class
+again, and now under both anchorings: the fractions below are zero to three
+decimals throughout. The cohesion-ratio measurement the table rests on is
+still what Sections 4.6 and 5.5 quote, so the table is kept.
 
     python scripts/make_matrix_shear_anchoring.py
 """

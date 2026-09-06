@@ -39,6 +39,11 @@ OBSERVED_STYLE = dict(color="#1b6ca8", lw=1.6, marker="o", ms=2.2,
                       mfc="#1b6ca8", mec="none", zorder=4)
 PREDICTED_STYLE = dict(color="#c1121f", lw=1.9, zorder=3)
 OBSERVED_FULL_STYLE = dict(color="0.72", lw=0.8, zorder=2)
+#: The parts of the two compared traces that lie outside the fitting domain.
+#: Drawn faintly so the whole crack is visible while the bold portion shows
+#: what each reported orientation was measured over.
+OBSERVED_TAIL_STYLE = dict(color="#1b6ca8", lw=1.4, alpha=0.55, zorder=2)
+PREDICTED_TAIL_STYLE = dict(color="#c1121f", lw=1.6, alpha=0.55, zorder=2)
 DISC_STYLE = dict(color="0.30", lw=1.3, zorder=1)
 FOLIATION_STYLE = dict(color="#c8b89a", lw=0.7, zorder=0)
 
@@ -75,10 +80,18 @@ def _mm(a):
     return np.asarray(a, float) / MM_TO_M
 
 
-def _draw_disc(ax, foliation_deg=None, show_loading=True, central_frac=None):
-    """Disc, clipped foliation lines and loading reference, in millimetres."""
+def _draw_disc(ax, foliation_deg=None, show_loading=True, central_frac=None,
+               spacing_m=None):
+    """Disc, clipped foliation lines and loading reference, in millimetres.
+
+    ``spacing_m`` rules the foliation at the measured weak-plane spacing of the
+    lithology instead of the decorative fixed count, so the fivefold contrast
+    between the two rocks is visible in the panels.
+    """
     return draw_disc(ax, RADIUS_M / MM_TO_M, angle_deg=foliation_deg,
-                     show_loading=show_loading, central_frac=central_frac)
+                     show_loading=show_loading, central_frac=central_frac,
+                     foliation_spacing=(None if spacing_m is None
+                                        else spacing_m / MM_TO_M))
 
 
 def _panel_grid(n=7, figsize=(9.0, 12.6)):
@@ -116,6 +129,15 @@ def seven_panel_trace_overlay(rows, lithology, out_stem, formats=("pdf", "png"))
         if r.get("status") == "computed":
             ox, oy = r["_obs_full"]
             ax.plot(_mm(ox), _mm(oy), **OBSERVED_FULL_STYLE)
+            # Whole primary crack and whole trajectory, faint, so the reader
+            # sees the parts that lie outside the common fitting domain.
+            ofx, ofy = r["_obs_primary_full"]
+            pfx, pfy = r["_pred_full"]
+            # One continuous line per crack, rim to rim, so each reads as a
+            # single fracture; the bold overlay below marks the part the
+            # reported orientation was fitted over.
+            ax.plot(_mm(ofx), _mm(ofy), **OBSERVED_TAIL_STYLE)
+            ax.plot(_mm(pfx), _mm(pfy), **PREDICTED_TAIL_STYLE)
             oxp, oyp = r["_obs_xy"]
             pxp, pyp = r["_pred_xy"]
             ax.plot(_mm(oxp), _mm(oyp), **OBSERVED_STYLE)
@@ -131,7 +153,7 @@ def seven_panel_trace_overlay(rows, lithology, out_stem, formats=("pdf", "png"))
         # same title font and rock-type prefix as the classification composite,
         # so the two seven-panel figures read as one family
         ax.set_title(f"{lithology.display_name},  "
-                     r"$\alpha_{\mathrm{exp}}$ = "
+                     r"$\alpha$ = "
                      f"{r['experimental_angle_deg']}°\n{sub}", fontsize=12, pad=6)
         if k >= 5:
             ax.set_xlabel("x (mm)")
@@ -217,7 +239,8 @@ def seven_panel_classification(panels, lithology, out_stem, formats=("pdf", "png
                             colors="none", hatches=["////"], zorder=1)
                 ax.contour(_mm(p["X"]), _mm(p["Y"]), mf.astype(float), levels=[0.5],
                            colors="k", linewidths=0.4, zorder=2)
-        _draw_disc(ax, foliation_deg=p["angle_deg"], central_frac=None)
+        _draw_disc(ax, foliation_deg=p["angle_deg"], central_frac=None,
+                   spacing_m=lithology.spacing_m)
 
         if show_crack_path:
             xy = _crack_path_mm(p["sample"])
@@ -231,7 +254,7 @@ def seven_panel_classification(panels, lithology, out_stem, formats=("pdf", "png
 
         panel_label(ax, f"({chr(97+k)})")
         ax.set_title(f"{lithology.display_name},  "
-                     r"$\alpha_{\mathrm{exp}}$ = " f"{p['angle_deg']}°",
+                     r"$\alpha$ = " f"{p['angle_deg']}°",
                      fontsize=12, pad=6)
         if k >= 5:
             ax.set_xlabel("x (mm)")
@@ -311,7 +334,7 @@ def strain_partition_two_rocks(df, out_stem, formats=("pdf", "png")):
                 bottom += np.nan_to_num(vals)
         ax.set_xticks(x)
         ax.set_xticklabels([f"{int(a)}" for a in angles])
-        ax.set_xlabel(r"$\alpha_{\mathrm{exp}}$ (deg)")
+        ax.set_xlabel(r"$\alpha$ (deg)")
         ax.set_title(f"{regime} ({REGIME_OFFSETS_MPA[regime]:+.2f} MPa)", fontsize=14)
         style_axes(ax)
     axes[0].set_ylabel("share of stored energy (%)")

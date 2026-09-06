@@ -77,6 +77,30 @@ def test_no_published_table_predates_the_fields():
 
 
 @needs_fields
+def test_no_spliced_supplement_table_predates_the_fields():
+    """The .txt sources spliced into the manuscript must be refreshed too.
+
+    ``table_S_energy_localization.txt`` sat unregenerated for weeks behind a
+    producer that had been removed, so Table B.13 published corridor angles
+    from a superseded run while the CSV beside it carried the current ones.
+    The check above only sees ``outputs/tables/*.csv``, which is how that got
+    through; this one covers the files the document is actually built from.
+    """
+    src = REPO / "manuscript" / "tables"
+    if not src.is_dir():
+        pytest.skip("no manuscript table sources in this checkout")
+    oldest = _oldest_field_mtime()
+    stale = [p.name for p in sorted(src.glob("*.txt"))
+             if os.path.getmtime(p) < oldest]
+    assert not stale, (
+        "these spliced supplement tables are older than the exported fields: "
+        f"{stale}. The manuscript is being built from values the last full run "
+        "did not produce. Find the producer, or write one, rather than "
+        "touching the file."
+    )
+
+
+@needs_fields
 def test_every_table_is_written_by_something_in_the_tree():
     """A weaker check that still catches a file with no writer at all.
 

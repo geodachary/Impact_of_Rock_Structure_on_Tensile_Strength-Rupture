@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools import fracture_energy as fe          # noqa: E402
 from tools import output_dirs  # noqa: E402
 from tools.plot_style import apply_plot_style    # noqa: E402
+from tools.lithology import repo_relative
 
 REPO = Path(__file__).resolve().parents[1]
 BAND_COLOR = {"low (0-30 deg)": "#0072B2",
@@ -239,7 +240,7 @@ def main():
               output_dirs.TABLE_DIR + "/displacement_mirror_symmetry.csv",
               "manuscript/tables/table_S_fig20_GGc.txt",
               "manuscript/tables/table_S_fig20_bands.txt",
-              str(mirror_out)] + [Path(f).name for f in figs]:
+              repo_relative(mirror_out)] + [Path(f).name for f in figs]:
         print("  ", p)
     return 0
 

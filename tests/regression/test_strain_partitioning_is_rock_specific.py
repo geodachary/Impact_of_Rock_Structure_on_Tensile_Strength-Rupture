@@ -87,12 +87,20 @@ def test_the_tensile_classes_grow_toward_extension(partition):
     g = partition[partition.status == "computed"]
     for rock in ("Augen gneiss", "Psammitic schist"):
         s = g[g.lithology == rock].groupby("regime")[["WT_pct", "MT_pct"]].mean()
-        for cls in ("WT_pct", "MT_pct"):
-            assert s.loc["Extensional", cls] > s.loc["Thrust", cls], (
-                f"{rock}: {cls} is not larger under extension "
-                f"({s.loc['Extensional', cls]:.2f}) than under thrust "
-                f"({s.loc['Thrust', cls]:.2f}). Either the offsets have been "
-                "relabelled again or the sign convention has changed.")
+        assert s.loc["Extensional", "WT_pct"] > s.loc["Thrust", "WT_pct"], (
+            f"{rock}: WT_pct is not larger under extension "
+            f"({s.loc['Extensional', 'WT_pct']:.2f}) than under thrust "
+            f"({s.loc['Thrust', 'WT_pct']:.2f}). Either the offsets have been "
+            "relabelled again or the sign convention has changed.")
+    # Matrix tensile is empty in the gneiss under the measured ratios, so the
+    # growth toward extension can only be checked in the schist.
+    sch = g[g.lithology == "Psammitic schist"].groupby("regime").MT_pct.mean()
+    assert sch["Extensional"] > sch["Thrust"], (
+        "the schist matrix-tensile share no longer grows toward extension")
+    gn = g[g.lithology == "Augen gneiss"].MT_pct
+    assert (gn == 0).all(), (
+        "matrix tensile has reappeared in the gneiss energy partition; "
+        "Section 4.10 states it is empty there at every offset")
 
 
 def test_two_rock_figure_is_data_driven(tmp_path, partition):

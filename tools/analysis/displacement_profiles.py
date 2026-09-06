@@ -26,9 +26,11 @@ from tools import output_dirs
 
 # --- inherited from earlier notebook cells ---------------------------
 from tools.ddm import (  # noqa: F401
-    band_open_factor_from_sigma_n, get_anisotropy_ratio, get_first_col,
+    band_open_factor_from_sigma_n, get_anisotropy_ratio, get_material_axes, get_first_col,
     hertz_contact_halfwidth, mean_profile_midband,
 )
+from tools.lithology import repo_relative
+from tools.ddm._toolkit import ROCK_ANISO_RATIO as _CANONICAL_ANISO_RATIO
 
 
 
@@ -823,10 +825,12 @@ def get_uv_cached(idx, row):
     rock = str(get_first_col(row, ["Rock_type"]))
     anis_ratio = get_anisotropy_ratio(rock)
 
-    E1_in = float(get_first_col(row, ["Modulus_of_Elasticity", "Youngs_Modulus", "E"]))
-    E2_in = float(E1_in) / float(anis_ratio)
-    nu = float(get_first_col(row, ["Poisson_Ratio", "nu", "PoissonRatio"]))
-    G_in = float(get_first_col(row, ["Shear_Modulus", "G"], required=False, default=np.nan))
+    # Foliation-frame constants, per lithology; see get_material_axes.
+    _mx = get_material_axes(rock)
+    E1_in = float(_mx["E1"])
+    E2_in = float(_mx["E2"])
+    nu = float(_mx["nu12"])
+    G_in = float(_mx["G12"])
 
     phi_load_rad = float(get_first_col(row, ["Radians"]))
     if ANGLE_FROM_LOADING_AXIS:
@@ -879,11 +883,8 @@ def main(rock):
         u_mm, use_hertz_contact_width, v, vals, x_common, x_m, x_max, \
         x_min, x_mm, xc, xx, y_common, yy
     _bind(rock)
-    ROCK_ANISO_RATIO = {
-        "augen gneiss": 2.037,
-        "psammitic schist": 3.763,
-        "psammatic schist": 3.763,   # historical spelling, still accepted
-    }
+    # One dict, defined in _toolkit and derived from the replicate table.
+    ROCK_ANISO_RATIO = dict(_CANONICAL_ANISO_RATIO)
     CSV_PATH = "tensile_samples_data.csv"
     SAMPLE_IDS = list(_rock().sample_ids)
     BAND_FRAC = 0.02
@@ -977,5 +978,5 @@ def main(rock):
     outpath = os.path.join(output_dir, f"{_rock().key}_mid_disp_profiles.pdf")
     plt.savefig(outpath, dpi=300, bbox_inches="tight", format="pdf")
     plt.show()
-    print(f"Saved: {outpath}")
-    print(f"Cache dir: {cache_dir}")
+    print(f"Saved: {repo_relative(outpath)}")
+    print(f"Cache dir: {repo_relative(cache_dir)}")

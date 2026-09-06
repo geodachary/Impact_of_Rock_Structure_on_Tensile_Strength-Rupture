@@ -133,8 +133,8 @@ def _per_angle(means, rock, col):
 def test_the_anisotropy_ratios_match_the_measurements(tex, means):
     """End-member contrast and full-range ratio, tensile and compressive."""
     want = {
-        "Psammitic schist": dict(ends=1.91, full=2.76, ucs=1.69),
-        "Augen gneiss":     dict(ends=1.31, full=1.37, ucs=1.75),
+        "Psammitic schist": dict(ends=1.91, full=2.57, ucs=2.59),
+        "Augen gneiss":     dict(ends=1.31, full=1.37, ucs=1.60),
     }
     for rock, w in want.items():
         t = _per_angle(means, rock, "Tensile_strength_Mpa")
@@ -164,7 +164,7 @@ def test_the_two_modes_are_minimized_at_different_angles(means):
 
 def test_scatter_is_largest_at_the_weakest_orientation(tex, means):
     """Claim (iii). The two quoted coefficients of variation, and the pattern."""
-    said = {"Psammitic schist": 19.8, "Augen gneiss": 6.2}
+    said = {"Psammitic schist": 13.0, "Augen gneiss": 6.2}
     for rock, cv75 in said.items():
         g = means[rock].groupby("Angle")["Tensile_strength_Mpa"]
         cv = 100 * g.std() / g.mean()
@@ -176,7 +176,14 @@ def test_scatter_is_largest_at_the_weakest_orientation(tex, means):
 
 
 def test_which_mode_carries_the_stronger_fabric_effect(means):
-    """The per-lithology reversal, which the paragraph turns on."""
+    """Whether the two loading modes separate at all, which the paragraph turns on.
+
+    The paragraph used to claim a reversal between the lithologies. On the
+    revised measurements the gneiss still shows the larger effect in
+    compression, while in the schist the two ratios are within one per cent of
+    each other, so the claim is now that the modes separate in one rock and not
+    in the other.
+    """
     ratios = {}
     for rock in ("Psammitic schist", "Augen gneiss"):
         t = _per_angle(means, rock, "Tensile_strength_Mpa")
@@ -185,7 +192,8 @@ def test_which_mode_carries_the_stronger_fabric_effect(means):
     t_g, u_g = ratios["Augen gneiss"]
     t_s, u_s = ratios["Psammitic schist"]
     assert u_g > t_g, "the gneiss no longer shows the stronger effect in compression"
-    assert t_s > u_s, "the schist no longer shows the stronger effect in tension"
-    # and the quoted relative separations
-    assert round(100 * (u_g - t_g) / t_g) == 28, f"gneiss separation {100*(u_g-t_g)/t_g:.1f}%"
-    assert round(100 * (t_s - u_s) / u_s) == 63, f"schist separation {100*(t_s-u_s)/u_s:.1f}%"
+    assert round(100 * (u_g - t_g) / t_g) == 17, (
+        f"gneiss separation {100*(u_g-t_g)/t_g:.1f}%, the paper says 17%")
+    assert abs(100 * (t_s - u_s) / u_s) <= 2, (
+        f"the schist ratios now differ by {100*abs(t_s-u_s)/u_s:.1f}%; the paper "
+        "describes them as nearly equal")

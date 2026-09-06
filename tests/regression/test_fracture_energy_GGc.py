@@ -62,14 +62,18 @@ def test_oscillation_not_confined_to_intermediate_angles(df):
     # the third decimal of one run.
     assert 0.60 < lo / mid < 1.35, \
         f"bands diverged: low {lo:.3f} vs intermediate {mid:.3f}"
-    # Re-locked at M = 48 (2026-08-29). All three band means rose as the
-    # better-converged field resolved more along-path structure; the low/mid
-    # ratio moved from 0.88 to 0.83, still far above the 0.5 the withdrawn
-    # reading would require. The claim above is what the test exists for;
-    # these three catch an unintended recompute.
-    assert lo == pytest.approx(3.63, abs=0.02)
-    assert mid == pytest.approx(3.43, abs=0.02)
-    assert b["high (75-90 deg)"] == pytest.approx(2.34, abs=0.02)
+    # Re-locked once the schist fields were rebuilt on the measured anisotropy
+    # ratio. The previous lock was taken while specimens 8 to 14 still carried
+    # the abandoned ratio of 3.763, so it mixed a corrected gneiss with a stale
+    # schist. The low band is the largest of the three again, as it was before
+    # that mixed state; the secondary "low band is largest" argument stays out
+    # of Section 4.8 regardless, because it is not needed for the withdrawal.
+    # The claim this test exists for is unaffected: the low/mid ratio is 1.08,
+    # still far above the 0.5 the withdrawn reading would require. These three
+    # catch an unintended recompute.
+    assert lo == pytest.approx(3.73, abs=0.02)
+    assert mid == pytest.approx(4.16, abs=0.02)
+    assert b["high (75-90 deg)"] == pytest.approx(2.37, abs=0.02)
 
 
 def test_no_energy_driven_step_falls_below_Gc(df):
@@ -84,7 +88,7 @@ def test_no_energy_driven_step_falls_below_Gc(df):
     is what turns this back into a measurement.
     """
     assert df.n_below_Gc_energy.sum() == 0
-    assert df.min_G_over_Gc_energy.min() == pytest.approx(1.017, abs=1e-3)
+    assert df.min_G_over_Gc_energy.min() == pytest.approx(1.004, abs=1e-3)
     assert (df.min_G_over_Gc_energy > 1.0).all()
 
 
@@ -106,8 +110,8 @@ def test_low_angle_steps_are_shear_dominated(df):
     assert low.shear_fraction.mean() > 0.5
     g0 = df[(df.angle_deg == 0) & (df.lithology == "Augen gneiss")].iloc[0]
     s0 = df[(df.angle_deg == 0) & (df.lithology == "Psammitic schist")].iloc[0]
-    assert g0.shear_fraction == pytest.approx(0.616, abs=1e-3)
-    assert s0.shear_fraction == pytest.approx(0.914, abs=1e-3)
+    assert g0.shear_fraction == pytest.approx(0.940, abs=1e-3)
+    assert s0.shear_fraction == pytest.approx(0.885, abs=1e-3)
 
 
 def test_verdict_rejects_all_three_readings(df):

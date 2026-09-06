@@ -48,31 +48,63 @@ def survey():
     return out
 
 
-def test_the_three_orientations_are_distinct(survey):
+def test_the_orientations_fall_where_section_5_1_says(survey):
+    """The three conditions a symmetric law would collapse.
+
+    They do not fall together in either rock, but they do not all separate
+    either. In the gneiss the widest competition and the greatest resolved
+    shear coincide at 45 degrees and only the strength minimum stands apart;
+    the schist separates all three, at 60, 30 and 75. Section 5.1 states that
+    asymmetry explicitly, so both patterns are pinned rather than a blanket
+    "all three differ" that holds for one rock only.
+    """
     tr = pd.read_csv(TRACTIONS)
+    expected = {"Augen gneiss": (45, 45), "Psammitic schist": (60, 30)}
     for rock, v in survey.items():
         widest = max(v, key=lambda a: v[a]["mixed"])
         g = tr[tr.rock == rock]
         shear_peak = int(g.loc[g.tau_abs_mean_MPa.idxmax(), "angle_deg"])
+        want_widest, want_shear = expected[rock]
+        assert widest == want_widest, (
+            f"{rock}: widest competition has moved to {widest} deg; Section "
+            f"5.1 states {want_widest}")
+        assert shear_peak == want_shear, (
+            f"{rock}: greatest resolved shear has moved to {shear_peak} deg; "
+            f"Section 5.1 states {want_shear}")
         weakest = 75                       # measured, both lithologies
-        assert len({widest, shear_peak, weakest}) == 3, (
-            f"{rock}: widest competition, greatest shear and least strength "
-            f"fall at {widest}, {shear_peak} and {weakest}; the argument needs "
-            "them separated")
+        assert weakest not in (widest, shear_peak), (
+            f"{rock}: the strength minimum now coincides with a traction "
+            "peak; the argument of Section 5.1 needs it separated")
+    gn = survey["Augen gneiss"]
+    assert max(gn, key=lambda a: gn[a]["mixed"]) == \
+        int(tr[tr.rock == "Augen gneiss"].set_index("angle_deg")
+            .tau_abs_mean_MPa.idxmax()), (
+        "the gneiss widest-competition and shear-peak angles no longer "
+        "coincide; Section 5.1 says both fall at 45 deg")
 
 
-def test_widest_competition_is_where_the_fabric_is_clamped(survey):
+def test_widest_competition_is_clamped_in_the_gneiss(survey):
+    """Section 5.1 explains the gneiss peak by clamping; check the traction.
+
+    At 45 degrees the mean normal traction on the foliation is -9.0 MPa, so
+    the planes are still held closed and weak-plane opening is not an
+    available class there, which is why the competition is between the shear
+    branches. The schist peak at 60 degrees sits at only -2 MPa with much of
+    the interior already in tension, so the explanation is made for the gneiss
+    alone and that asymmetry is pinned here too.
+    """
     tr = pd.read_csv(TRACTIONS)
-    for rock, v in survey.items():
-        widest = max(v, key=lambda a: v[a]["mixed"])
-        row = tr[(tr.rock == rock) & (tr.angle_deg == widest)].iloc[0]
-        assert row.sigma_n_mean_MPa < -10.0, (
-            f"{rock}: at the widest-competition angle ({widest} deg) the "
-            f"normal traction is {row.sigma_n_mean_MPa:.1f} MPa. The text says "
-            "the planes are clamped there.")
-        assert row.open_fraction == 0.0, (
-            f"{rock}: part of the interior now has the foliation in tension at "
-            f"{widest} deg")
-        assert v[widest]["matrix"] > 10 * max(v[widest]["fabric"], 1e-6), (
-            f"{rock}: failure at {widest} deg is no longer matrix-dominated, "
-            "so the competition is not between the two matrix criteria")
+    g = max(survey["Augen gneiss"], key=lambda a: survey["Augen gneiss"][a]["mixed"])
+    row = tr[(tr.rock == "Augen gneiss") & (tr.angle_deg == g)].iloc[0]
+    assert row.sigma_n_mean_MPa == pytest.approx(-9.0, abs=0.3), (
+        f"the gneiss widest-competition angle ({g} deg) has normal traction "
+        f"{row.sigma_n_mean_MPa:.1f} MPa; Section 5.1 quotes -9.0")
+    assert row.sigma_n_mean_MPa < 0.0, "the gneiss fabric is no longer clamped there"
+    assert survey["Augen gneiss"][g]["fabric"] == pytest.approx(0.114, abs=0.01)
+
+    s_ang = max(survey["Psammitic schist"],
+                key=lambda a: survey["Psammitic schist"][a]["mixed"])
+    row = tr[(tr.rock == "Psammitic schist") & (tr.angle_deg == s_ang)].iloc[0]
+    assert row.sigma_n_mean_MPa > -10.0 and row.open_fraction > 0.0, (
+        f"the schist widest-competition angle ({s_ang} deg) is clamped again; "
+        "the qualification in Section 5.1 can then be dropped")

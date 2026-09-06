@@ -39,6 +39,7 @@ TABLES = [
     "table_S_fig20_bands",
     "table_S_fabric_tractions",
     "table_S_eshelby_bound",
+    "table_S_trace_validation",
     "table_S_energy_localization",
 ]
 

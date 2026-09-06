@@ -20,6 +20,7 @@ from __future__ import annotations
 import pandas as pd
 from openpyxl.styles import PatternFill, Font, Alignment
 from openpyxl.utils import get_column_letter
+from tools.lithology import repo_relative
 
 
 
@@ -263,4 +264,4 @@ def main():
         # Apply formatting to every sheet
         for ws in writer.book.worksheets:
             format_sheet(ws)
-    print(f"Excel file saved to: {out_xlsx}")
+    print(f"Excel file saved to: {repo_relative(out_xlsx)}")

@@ -41,10 +41,10 @@ def _at(df, rock, angle, col):
 
 
 def test_the_quoted_class_fractions(fourclass):
-    want = [("Augen gneiss", 90, "WT", 0.128), ("Psammitic schist", 90, "WT", 0.101),
-            ("Augen gneiss", 60, "WS", 0.212), ("Psammitic schist", 60, "WS", 0.169),
-            ("Augen gneiss", 0, "MS", 0.273), ("Psammitic schist", 0, "MS", 0.541),
-            ("Augen gneiss", 0, "MT", 0.120), ("Psammitic schist", 15, "MT", 0.012)]
+    want = [("Augen gneiss", 90, "WT", 0.144), ("Psammitic schist", 90, "WT", 0.151),
+            ("Augen gneiss", 60, "WS", 0.215), ("Psammitic schist", 45, "WS", 0.208),
+            ("Augen gneiss", 0, "MS", 0.319), ("Psammitic schist", 0, "MS", 0.372),
+            ("Augen gneiss", 0, "MT", 0.000), ("Psammitic schist", 15, "MT", 0.000)]
     for rock, ang, cls, v in want:
         assert _at(fourclass, rock, ang, cls) == pytest.approx(v, abs=0.001), (
             f"{rock} {cls} at {ang} deg")
@@ -57,26 +57,30 @@ def test_matrix_shear_vanishes_above_sixty_degrees(fourclass):
                 f"{rock}: matrix shear is no longer absent at {ang} deg")
 
 
-def test_the_failed_fraction_ordering_does_not_return_to_the_schist(stats):
+def test_the_failed_fraction_ordering_alternates(stats):
+    """Neither lithology leads systematically under the measured ratios.
+
+    With the adopted ratios the schist led from 0 to 45 degrees and the gneiss
+    from 60 upward, a clean crossover the text described. That crossover is
+    gone: the ordering now alternates, so Section 4.6 states the pattern
+    instead of a reversal.
+    """
     g = {int(r.angle_deg): r.p_fail for r in
          stats[stats.rock == "Augen gneiss"].itertuples()}
     s = {int(r.angle_deg): r.p_fail for r in
          stats[stats.rock == "Psammitic schist"].itertuples()}
-    for a in (0, 15, 30, 45):
+    for a in (0, 30, 45):
         assert s[a] > g[a], f"the schist no longer leads at {a} deg"
-    for a in (60, 75, 90):
-        assert g[a] > s[a], (
-            f"at {a} deg the schist leads again ({s[a]:.1f}% against "
-            f"{g[a]:.1f}%); the text says the reversal from 60 deg does not "
-            "return, including at 90")
+    for a in (15, 60, 75, 90):
+        assert g[a] > s[a], f"the gneiss no longer leads at {a} deg"
 
 
 def test_the_criterion_load_factors(stats):
     from tools import criterion_consistency as cc
     t = cc.consistency_table()
-    want = {"lam_tension": (0.81, 1.44, 0.18, 6),
-            "lam_mohr_coulomb": (0.73, 2.71, 0.14, 5),
-            "lam_griffith": (0.68, 1.25, 0.20, 6)}
+    want = {"lam_tension": (0.841, 1.418, 0.105, 6),
+            "lam_mohr_coulomb": (0.736, 2.462, 0.167, 6),
+            "lam_griffith": (0.762, 1.225, 0.111, 6)}
     for col, (lo, hi, med, early) in want.items():
         v = t[col].to_numpy(float)
         v = v[np.isfinite(v) & (v > 0)]
@@ -89,16 +93,21 @@ def test_the_criterion_load_factors(stats):
 
 def test_the_mirror_symmetry_statistics():
     d = pd.read_csv(TAB / "displacement_mirror_symmetry.csv")
-    assert d.max_index.median() == pytest.approx(0.50, abs=0.005), (
+    assert d.max_index.median() == pytest.approx(0.180, abs=0.005), (
         f"median departure is {d.max_index.median():.3f}")
     below = d[d.max_index <= 0.10]
     assert len(below) == 4, f"{len(below)} solutions fall below the threshold"
-    assert set(below.angle_deg) == {0, 90}, (
+    # Three of the four are fabric end members, as the argument expects. The
+    # fourth is the schist at 45 degrees, which sits an order of magnitude
+    # below its own neighbours (0.036 against 0.344 and 0.341). That dip is
+    # recorded rather than smoothed over: the paragraph says departures are
+    # small at the end members, and this one specimen is an exception to it.
+    assert set(below.angle_deg) == {0, 45, 90}, (
         "the sub-threshold cases are no longer exactly the fabric end members: "
         f"{below[['lithology', 'angle_deg']].to_dict('records')}")
     g = d[(d.lithology == "Augen gneiss") & (d.angle_deg == 45)].max_index.iloc[0]
     s = d[(d.lithology == "Psammitic schist") & (d.angle_deg == 45)].max_index.iloc[0]
-    assert round(float(s), 2) == 0.83 and round(float(g), 2) == 0.75, (
+    assert round(float(s), 2) == 0.04 and round(float(g), 2) == 0.20, (
         f"the 45 degree pair is now {s:.3f} against {g:.3f}")
 
 

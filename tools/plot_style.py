@@ -131,10 +131,22 @@ def foliation_chord(angle_deg, radius, offset=0.0):
     return ((cx - half * ux, cx + half * ux), (cy - half * uy, cy + half * uy))
 
 
-def draw_foliation_lines(ax, angle_deg, radius, n_lines=9, spacing_frac=0.30, **kw):
-    """Draw evenly spaced foliation guide lines, each clipped to the disc."""
+def draw_foliation_lines(ax, angle_deg, radius, n_lines=9, spacing_frac=0.30,
+                         spacing=None, **kw):
+    """Draw evenly spaced foliation guide lines, each clipped to the disc.
+
+    ``spacing``, in the same units as ``radius``, draws the rulings at the
+    measured weak-plane spacing of the specimen and sets the line count to
+    cover the disc. Without it the rulings are decorative: a fixed nine lines
+    at 0.30R, which is close to the gneiss spacing by coincidence and about
+    four times too wide for the schist, so the two lithologies looked
+    identically ruled despite the fivefold difference the paper reports.
+    """
     style = dict(color="#c8b89a", lw=0.9, zorder=0)
     style.update(kw)
+    if spacing is not None and spacing > 0:
+        spacing_frac = float(spacing) / float(radius)
+        n_lines = 2 * int(np.ceil(float(radius) / float(spacing))) + 1
     drawn = 0
     for k in range(-(n_lines // 2), n_lines // 2 + 1):
         chord = foliation_chord(angle_deg, radius, k * spacing_frac * radius)
@@ -147,7 +159,7 @@ def draw_foliation_lines(ax, angle_deg, radius, n_lines=9, spacing_frac=0.30, **
 
 
 def draw_disc(ax, radius, angle_deg=None, show_loading=True, central_frac=None,
-              n_foliation=9):
+              n_foliation=9, foliation_spacing=None):
     """Specimen boundary, clipped foliation lines and the loading reference.
 
     Establishes equal aspect and symmetric limits, so every disc panel in the
@@ -159,7 +171,8 @@ def draw_disc(ax, radius, angle_deg=None, show_loading=True, central_frac=None,
         ax.add_patch(plt.Circle((0, 0), central_frac * radius, fill=False, ls=":",
                                 lw=1.0, ec="0.55", zorder=2))
     if angle_deg is not None:
-        draw_foliation_lines(ax, angle_deg, radius, n_lines=n_foliation)
+        draw_foliation_lines(ax, angle_deg, radius, n_lines=n_foliation,
+                             spacing=foliation_spacing)
     if show_loading:
         ax.plot([0, 0], [-radius * 1.16, radius * 1.16], color="0.45", lw=1.2,
                 ls="-.", zorder=1)

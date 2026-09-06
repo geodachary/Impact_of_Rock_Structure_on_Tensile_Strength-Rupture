@@ -41,7 +41,7 @@ def load_observed_trace(path):
     dict with ``x``, ``y`` (used arrays), ``x_src``, ``y_src`` (untransformed),
     and provenance counters.
     """
-    path = Path(path)
+    path = lith.resolve_repo_path(path)
     df = pd.read_csv(path, header=None, names=["x", "y"])
     for c in ("x", "y"):
         df[c] = pd.to_numeric(df[c], errors="coerce")
@@ -66,7 +66,7 @@ def load_observed_trace(path):
 
 def load_predicted_trace(path):
     """Load a DDM predicted trace (header ``order,x_m,y_m``, metres)."""
-    path = Path(path)
+    path = lith.resolve_repo_path(path)
     df = pd.read_csv(path).dropna(subset=["x_m", "y_m"]).reset_index(drop=True)
     if "order" in df.columns:
         df = df.sort_values("order").reset_index(drop=True)
@@ -341,6 +341,38 @@ def shape_metrics(ax, ay, bx, by, n=400):
 # ---------------------------------------------------------------------------
 # Specimen-level comparison
 # ---------------------------------------------------------------------------
+
+def bootstrap_orientation_sd_points(x, y, n=2000, seed=20260807):
+    """Bootstrap SD of the fitted orientation for an already-clipped trace.
+
+    Resamples the digitized points of the trace as it was actually fitted, so
+    the quoted scatter describes the fit that was performed. It measures
+    digitization and fit scatter only. It is **not** a replicate standard
+    deviation: one specimen was tested per lithology-angle pair, so
+    between-specimen variability is not measurable from this dataset.
+
+    The points along one crack are spatially correlated, so an independent
+    resample of individual points understates the spread somewhat. A block
+    bootstrap along arc length would be stricter. It is not used here because
+    the quantity is reported as a descriptive fit uncertainty and no claim in
+    the paper turns on its exact width.
+    """
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    if len(x) < 3:
+        return np.nan
+    base, _ = fit_orientation_deg(x, y)
+    if not np.isfinite(base):
+        return np.nan
+    rng = np.random.default_rng(int(seed))
+    out = []
+    for _ in range(int(n)):
+        idx = rng.integers(0, len(x), len(x))
+        a, _c = fit_orientation_deg(x[idx], y[idx])
+        if np.isfinite(a):
+            out.append(((a - base + 90.0) % 180.0) - 90.0)
+    return float(np.std(out, ddof=1)) if len(out) > 2 else np.nan
+
+
 def compare_specimen(sample_id, frac=DEFAULT_CENTRAL_FRAC, root=None, seed=20260807,
                      domain="full_primary_segment"):
     """Full observed-vs-predicted orientation comparison for one specimen."""
@@ -351,7 +383,8 @@ def compare_specimen(sample_id, frac=DEFAULT_CENTRAL_FRAC, root=None, seed=20260
 
     base = dict(sample=int(sample_id), lithology=lithology.display_name,
                 lithology_key=lithology.key, experimental_angle_deg=angle,
-                observed_source=str(obs_p), predicted_source=str(pred_p))
+                observed_source=lith.repo_relative(obs_p),
+                predicted_source=lith.repo_relative(pred_p))
 
     if not obs_p.exists() or not pred_p.exists():
         base.update(status="blocked",
@@ -364,20 +397,43 @@ def compare_specimen(sample_id, frac=DEFAULT_CENTRAL_FRAC, root=None, seed=20260
     oxp, oyp, o_nseg, o_len, o_tot = primary_segment(o["x"], o["y"])
     pxp, pyp, p_nseg, p_len, p_tot = primary_segment(p["x"], p["y"])
 
-    o_ang, o_col, p_ang, p_col, domain, o_se, p_se = orientation_pair(
-        oxp, oyp, pxp, pyp, frac, domain=domain)
+    # Both traces are clipped to the same predefined interior before either is
+    # fitted. r <= 0.85 R is the domain the stress, failure and energy
+    # statistics already use; it is not chosen to minimise angular error. The
+    # primary observed segment is identified above from the complete digitized
+    # trace, so clipping changes the fitting domain and never crack identity.
+    # Previously only the predicted trace was clipped, which compared the two
+    # over different domains.
+    oxp_f, oyp_f, pxp_f, pyp_f = (np.asarray(oxp, float), np.asarray(oyp, float),
+                                  np.asarray(pxp, float), np.asarray(pyp, float))
+    o_core = core_mask_radial(oxp_f, oyp_f, RADIUS_M)
+    p_core = core_mask_radial(pxp_f, pyp_f, RADIUS_M)
+    predicted_frac_outside_core = float(1.0 - p_core.mean())
+    observed_frac_outside_core = float(1.0 - o_core.mean())
 
-    # Read the predicted path only inside the interior the field diagnostics
-    # use; see PREDICTED_CORE_FRAC.
-    _pcore = core_mask_radial(pxp, pyp, RADIUS_M)
-    predicted_frac_outside_core = float(1.0 - _pcore.mean())
-    if int(_pcore.sum()) >= 3:
-        p_ang_core, _ = fit_orientation_deg(np.asarray(pxp)[_pcore],
-                                            np.asarray(pyp)[_pcore])
-        if np.isfinite(p_ang_core):
-            p_ang = float(p_ang_core)
-    o_sd = bootstrap_orientation_sd(
-        oxp, oyp, frac, seed=seed, use_central=(domain == "central_window"))
+    if int(o_core.sum()) >= 3 and int(p_core.sum()) >= 3:
+        oxp_d, oyp_d = oxp_f[o_core], oyp_f[o_core]
+        pxp_d, pyp_d = pxp_f[p_core], pyp_f[p_core]
+        fit_domain = "interior_0.85R"
+    else:
+        # Too few points survive the clip to fit an axis; fall back to the
+        # whole segment for both, and say so, rather than mixing domains.
+        oxp_d, oyp_d, pxp_d, pyp_d = oxp_f, oyp_f, pxp_f, pyp_f
+        fit_domain = "full_primary_segment"
+
+    o_ang, o_col = fit_orientation_deg(oxp_d, oyp_d)
+    p_ang, p_col = fit_orientation_deg(pxp_d, pyp_d)
+    o_se = angle_standard_error_deg(oxp_d, oyp_d)
+    p_se = angle_standard_error_deg(pxp_d, pyp_d)
+    observed_fit_domain = predicted_fit_domain = domain = fit_domain
+    assert observed_fit_domain == predicted_fit_domain, (
+        "observed and predicted orientations must share one fitting domain")
+
+    # Domain-sensitivity check: the same estimator over both full traces.
+    o_ang_full, _ = fit_orientation_deg(oxp_f, oyp_f)
+    p_ang_full, _ = fit_orientation_deg(pxp_f, pyp_f)
+
+    o_sd = bootstrap_orientation_sd_points(oxp_d, oyp_d, seed=seed)
 
     om = central_mask(oxp, oyp, frac)
     pm = central_mask(pxp, pyp, frac)
@@ -402,6 +458,14 @@ def compare_specimen(sample_id, frac=DEFAULT_CENTRAL_FRAC, root=None, seed=20260
         # can see which orientations the data actually determines rather than
         # only which ones triggered the fallback.
         orientation_fit_domain=domain,
+        observed_fit_domain=observed_fit_domain,
+        predicted_fit_domain=predicted_fit_domain,
+        observed_frac_outside_core=observed_frac_outside_core,
+        # Domain-sensitivity check, both traces over their full extent.
+        observed_orientation_full_deg=o_ang_full,
+        predicted_orientation_full_deg=p_ang_full,
+        abs_axial_angular_error_full_deg=float(
+            axial_angular_error_deg(p_ang_full, o_ang_full)),
         observed_orientation_se_deg=(None if not np.isfinite(o_se) else o_se),
         predicted_orientation_se_deg=(None if not np.isfinite(p_se) else p_se),
         orientation_se_advisory_deg=ANGLE_SE_ADVISORY_DEG,
@@ -413,7 +477,9 @@ def compare_specimen(sample_id, frac=DEFAULT_CENTRAL_FRAC, root=None, seed=20260
         supp_symmetric_mean_nn_distance_m=sm["symmetric_mean_nn_m"],
         supp_hausdorff_distance_m=sm["hausdorff_m"],
         central_fraction_used=frac, status="computed", reason="",
-        _obs_xy=(oxp, oyp), _pred_xy=(pxp, pyp),
+        _obs_xy=(oxp_d, oyp_d), _pred_xy=(pxp_d, pyp_d),
+        # Full extent of the same two traces, for context in the overlay.
+        _obs_primary_full=(oxp_f, oyp_f), _pred_full=(pxp_f, pyp_f),
         _obs_full=(o["x"], o["y"]),
     )
     return base

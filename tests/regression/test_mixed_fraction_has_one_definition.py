@@ -63,10 +63,17 @@ def test_the_two_classifiers_really_do_differ(fourclass):
 @pytest.mark.skipif(not TEX.is_file(), reason="manuscript not present")
 def test_the_manuscript_quotes_only_the_four_class_values(fourclass):
     t = TEX.read_text(encoding="utf-8")
-    g0 = fourclass["Augen gneiss"][0]
-    s15 = fourclass["Psammitic schist"][15]
-    assert f"${round(g0)}$\\%" in t, f"the four-class peak {g0:.1f}% is not stated"
-    assert f"${round(s15)}$\\%" in t, f"the four-class peak {s15:.1f}% is not stated"
+    # Under the measured ratios each rock has an interior peak at a different
+    # angle, and Sections 4.8, 5.2 and the Conclusion all quote that pair. The
+    # peaks are what the manuscript states, so the peaks are what is matched.
+    g = fourclass["Augen gneiss"]
+    sch = fourclass["Psammitic schist"]
+    g_peak = max(g.values())
+    s_peak = max(sch.values())
+    assert max(g, key=g.get) == 45, "the gneiss mixed peak has moved off 45 deg"
+    assert max(sch, key=sch.get) == 60, "the schist mixed peak has moved off 60 deg"
+    assert f"${g_peak:.1f}$\\%" in t, f"the gneiss peak {g_peak:.1f}% is not stated"
+    assert f"${s_peak:.1f}$\\%" in t, f"the schist peak {s_peak:.1f}% is not stated"
     # Match the values, not one phrasing of them. The first version of this
     # test looked for "$76$\\% and $68$\\%" and missed the Conclusion, which
     # wrote "reaches $76$\\% in the gneiss and $68$\\% in the schist".
@@ -79,12 +86,21 @@ def test_the_manuscript_quotes_only_the_four_class_values(fourclass):
 
 @pytest.mark.skipif(not TEX.is_file(), reason="manuscript not present")
 def test_the_mixed_fraction_is_never_claimed_to_vanish_at_forty_five(fourclass):
-    """Only the three-mode scheme gives zero there; four-class gives 13-14%."""
-    for rock, v in fourclass.items():
-        assert v[45] > 5.0, (
-            f"{rock}: four-class mixed fraction at 45 deg is now {v[45]:.1f}%")
-        assert max(v[60], v[75], v[90]) < 5.0, (
-            f"{rock}: mixed fraction no longer falls below 5% from 60 deg up")
+    """Only the three-mode scheme gives zero there; four-class peaks there."""
+    # The gneiss peak sits at 45 deg, so the mixed fraction is at its largest
+    # exactly where the superseded scheme called it zero. Above the peak the
+    # decline is uneven, which Section 5.2 now states rather than claiming a
+    # uniform drop below 3%.
+    g = fourclass["Augen gneiss"]
+    sch = fourclass["Psammitic schist"]
+    assert g[45] > 5.0, f"gneiss four-class mixed fraction at 45 deg is {g[45]:.1f}%"
+    assert max(g[60], g[75], g[90]) == pytest.approx(5.7, abs=0.1), (
+        "the gneiss mixed fraction above the peak has moved; Section 5.2 "
+        "quotes at most 5.7%")
+    assert sch[75] == 0.0 and sch[90] == 0.0, (
+        "the schist mixed fraction no longer vanishes from 75 deg upward")
+    assert g[90] == 0.0 and sch[90] == 0.0, (
+        "Sections 4.8 and 5.2 state the mixed fraction vanishes at 90 deg")
     t = TEX.read_text(encoding="utf-8")
     assert "falls to zero at $45^\\circ$" not in t, (
         "the claim that the mixed fraction vanishes at 45 degrees is back; it "

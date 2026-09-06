@@ -28,9 +28,11 @@ from tools import output_dirs
 
 # --- inherited from earlier notebook cells ---------------------------
 from tools.ddm import (  # noqa: F401
-    band_open_factor_from_sigma_n, get_anisotropy_ratio, get_first_col,
+    band_open_factor_from_sigma_n, get_anisotropy_ratio, get_material_axes, get_first_col,
     hertz_contact_halfwidth, sigma1_plus,
 )
+from tools.lithology import repo_relative
+from tools.ddm._toolkit import ROCK_ANISO_RATIO as _CANONICAL_ANISO_RATIO
 
 
 
@@ -1218,11 +1220,8 @@ def main(rock):
     second script, but the layout, sample handling, export structure, and angle
     conventions are revised to better match the first script.
     """
-    ROCK_ANISO_RATIO = {
-        "augen gneiss": 2.037,
-        "psammitic schist": 3.763,
-        "psammatic schist": 3.763,   # historical spelling, still accepted
-    }
+    # One dict, defined in _toolkit and derived from the replicate table.
+    ROCK_ANISO_RATIO = dict(_CANONICAL_ANISO_RATIO)
     _fft_cache = {}
     p = argparse.ArgumentParser(
         "Brazilian disk — publication-style orthotropic combined field",
@@ -1377,10 +1376,11 @@ def main(rock):
         rock = get_first_col(row, ["Rock_type"], required=True)
         anis_ratio = get_anisotropy_ratio(rock)
 
-        E1_in = to_MPa_modulus(get_first_col(row, ["Modulus_of_Elasticity", "Youngs_Modulus", "E"]))
-        G_in = float(get_first_col(row, ["Shear_Modulus", "G"], required=False, default=np.nan))
-        G_in = to_MPa_modulus(G_in) if np.isfinite(G_in) else np.nan
-        E2_in = E1_in / anis_ratio
+        # Foliation-frame constants, per lithology; see get_material_axes.
+        _mx = get_material_axes(rock)
+        E1_in = to_MPa_modulus(float(_mx["E1"]))
+        E2_in = to_MPa_modulus(float(_mx["E2"]))
+        G_in = to_MPa_modulus(float(_mx["G12"]))
 
         nu12 = float(get_first_col(row, ["Poisson_Ratio", "nu", "PoissonRatio"], required=False, default=args.nu12))
 
@@ -1542,8 +1542,8 @@ def main(rock):
     if args.save_plots:
         out_pdf = os.path.join(args.out_dir, f"{_rock().key}_stress_distribution.pdf")
         fig.savefig(out_pdf, dpi=int(args.figure_dpi), bbox_inches="tight", pad_inches=0.08, transparent=True)
-        print(f"\n✓ Saved: {out_pdf}")
-        print(f"✓ Stats: {stats_path}")
+        print(f"\n✓ Saved: {repo_relative(out_pdf)}")
+        print(f"✓ Stats: {repo_relative(stats_path)}")
         print(f"✓ Shared color scale: ±{global_abs:.3f} MPa (percentile={float(args.disk_percentile_abs):.1f}%)")
 
     # if args.save_fields_npz:

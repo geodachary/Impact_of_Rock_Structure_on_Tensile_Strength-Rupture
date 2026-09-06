@@ -52,6 +52,7 @@ import os
 import pandas as pd
 import re
 import sys
+from tools.lithology import repo_relative
 
 # --------------------------------------------------------------------------
 # Module-level constants (identical in both notebooks)
@@ -107,20 +108,130 @@ bd = None
 # the table is regenerated from the per-replicate measurements and the spelling
 # has changed between regenerations.
 #
-# Adopted, not measured. E2 = E1 / ratio; the replicate table carries E1, nu12
-# and G12 only, and no combination of the measured quantities reproduces these
-# values (test_e2_provenance pins that). Table 5 of the manuscript reports them
-# as adopted; add a citation there and here if a source is found. The ratio sets
-# the compliance contrast that Section 5.3 credits with reproducing the gneiss's
-# weaker localization, so its status matters.
+# Measured, not adopted. E2 = E1 / ratio, and the ratio is the end-member ratio
+# of the per-angle Young's modulus in the specimen table:
+#
+#     A_E = E(alpha=90) / E(alpha=0)
+#
+# By the fabric-angle convention of the manuscript, alpha = 0 is foliation
+# normal to loading and alpha = 90 is foliation parallel, so E(90) is the
+# foliation-parallel modulus E1 and E(0) is the foliation-normal modulus E2.
+# This is the definition the transversely isotropic E(theta) relation forces:
+# it passes exactly through both end members, so fitting it to the seven
+# per-angle means returns E1 and E2 pinned to E(90) and E(0).
+#
+# The gneiss gives 1.41 and the schist 0.82. The schist ratio is below one: its
+# apparent moduli make it stiffer across the foliation than along it, and its
+# E(theta) minimum sits at 45 degrees, so its modulus anisotropy is carried by
+# G12 rather than by an E1/E2 contrast. That is what the measurements say.
+#
+# These replaced hardcoded constants of 2.037 and 3.763 that no source and no
+# combination of the measured quantities could reproduce.
 #
 # Eight analysis modules assign a shadow copy of this dict inside main(). None
 # is read: every caller goes through get_anisotropy_ratio below.
-ROCK_ANISO_RATIO = {
-    "augen gneiss": 2.037,
-    "psammitic schist": 3.763,
-    "psammatic schist": 3.763,
-}
+def _measured_anisotropy_ratios():
+    """End-member modulus ratio per lithology, from the specimen table.
+
+    Read through ``data_io.load_specimen_table`` rather than from the replicate
+    file directly, because that is the one reader the rest of the workflow uses
+    and it canonicalises the lithology spelling. The two tables agree, the
+    fourteen-row table being the per-angle mean of the replicates, so the
+    numbers do not depend on the choice; the single reader does.
+    """
+    from ..data_io import load_specimen_table
+
+    df = load_specimen_table(indexed=False)
+    out = {}
+    for rock, g in df.groupby("Rock_type"):
+        by_angle = g.set_index("Angle")["Modulus_of_Elasticity"]
+        out[str(rock).strip().lower()] = float(by_angle.loc[90] / by_angle.loc[0])
+    # The historical misspelling is an accepted alias for the same rock.
+    if "psammitic schist" in out:
+        out["psammatic schist"] = out["psammitic schist"]
+    return out
+
+
+ROCK_ANISO_RATIO = _measured_anisotropy_ratios()
+
+
+def _material_axis_constants():
+    """The four in-plane elastic constants in the foliation frame, per rock.
+
+    These are properties of the lithology, not of the specimen. The uniaxial
+    test at 90 degrees loads along the foliation and therefore measures the
+    foliation-parallel modulus E1 and the Poisson ratio nu12; the test at
+    0 degrees loads across the foliation and measures the foliation-normal
+    modulus E2.
+
+    G12 is identified from the measured directional stiffness E(alpha) rather
+    than read from the Shear_Modulus column, because in the present table that
+    column is E(alpha)/(2(1+nu(alpha))) at every row, an isotropic-equivalent
+    carrying no independent shear information. A uniaxial test loaded along a
+    material axis cannot determine G12 in any case: it produces no shear in
+    the material frame. The off-axis moduli can, since for a transversely
+    isotropic solid E(alpha) depends on G12 through the rotated compliance,
+    most strongly near 45 degrees. G12 is therefore the value that best
+    reproduces the seven measured moduli, which fits them to about 1.5 per
+    cent in both rocks and agrees with the independent shear moduli reported
+    before the data revision.
+
+    They must be read once per lithology and not per specimen. The solver
+    rotates this tensor to each specimen's fabric angle, so substituting the
+    apparent modulus E(alpha) here would apply the orientation dependence
+    twice and the constructed tensor would no longer return the measured
+    directional stiffness.
+
+    Units follow the specimen table (GPa).
+    """
+    import numpy as np
+    from scipy.optimize import minimize_scalar
+
+    from ..data_io import load_specimen_table
+
+    def _Ey(E1, E2, nu12, G12, th):
+        m, n = np.cos(th), np.sin(th)
+        return 1.0 / ((1.0 / E1) * n ** 4
+                      + (-2.0 * nu12 / E1 + 1.0 / G12) * n * n * m * m
+                      + (1.0 / E2) * m ** 4)
+
+    df = load_specimen_table(indexed=False)
+    out = {}
+    for rock, g in df.groupby("Rock_type"):
+        by_angle = g.set_index("Angle")
+        E1 = float(by_angle.loc[90, "Modulus_of_Elasticity"])
+        E2 = float(by_angle.loc[0, "Modulus_of_Elasticity"])
+        nu12 = float(by_angle.loc[90, "Poisson_Ratio"])
+        angles = sorted(float(a) for a in by_angle.index)
+        th = np.radians(np.array(angles))
+        meas = np.array([float(by_angle.loc[a, "Modulus_of_Elasticity"])
+                         for a in angles])
+
+        def rms(G12):
+            return float(np.sqrt(np.mean(
+                ((_Ey(E1, E2, nu12, G12, th) - meas) / meas * 100.0) ** 2)))
+
+        G12 = float(minimize_scalar(rms, bounds=(0.5, 100.0),
+                                    method="bounded").x)
+        out[str(rock).strip().lower()] = dict(
+            E1=E1, E2=E2, nu12=nu12, G12=G12)
+    if "psammitic schist" in out:
+        out["psammatic schist"] = out["psammitic schist"]
+    return out
+
+
+ROCK_MATERIAL_AXES = _material_axis_constants()
+
+
+def get_material_axes(rock_name):
+    """Foliation-frame constants for a lithology, as a dict of floats."""
+    key = _normalize_rock_name(rock_name)
+    if key not in ROCK_MATERIAL_AXES:
+        valid = ", ".join(sorted(ROCK_MATERIAL_AXES))
+        raise RuntimeError(
+            f"Rock_type {rock_name!r} not found in ROCK_MATERIAL_AXES. "
+            f"Available keys: {valid}")
+    return dict(ROCK_MATERIAL_AXES[key])
 
 TOL_VIBRANT = [
     "#0077BB",  # blue
@@ -502,9 +613,9 @@ def _safe_wp_weight(X, Y, alpha_wp_line, spacing, bandwidth_frac):
     if "phase" in params and "bandwidth_frac" in params:
         w = fn(
             X, Y,
-            alpha_wp_line=float(alpha_wp_line),
+            alpha_wp_line=alpha_wp_line,
             spacing=float(spacing),
-            phase=0.0,
+            phase=phase,
             bandwidth_frac=float(bandwidth_frac),
         )
     elif "bandwidth_frac" in params:
@@ -534,15 +645,16 @@ def build_psi_pref_field(X, Y, M, Rt_eff, Rs_eff, sxx, syy, txy, beta_crit,
     )
 
 
-def compute_wp_weight_img(X, Y, alpha_wp_line, spacing, bandwidth_frac):
+def compute_wp_weight_img(X, Y, alpha_wp_line, spacing, bandwidth_frac,
+                          phase=0.0):
     sig = inspect.signature(weak_plane_weight_field)
     params = list(sig.parameters.keys())
     if ("phase" in params) and ("bandwidth_frac" in params):
         w = weak_plane_weight_field(
             X, Y,
-            alpha_wp_line=float(alpha_wp_line),
+            alpha_wp_line=alpha_wp_line,
             spacing=float(spacing),
-            phase=0.0,
+            phase=phase,
             bandwidth_frac=float(bandwidth_frac),
         )
     elif "bandwidth_frac" in params:
@@ -941,7 +1053,7 @@ def make_figure1(sample_records, out_path,
     )
 
     fig.savefig(out_path, format="pdf")
-    print(f"Figure 1 saved → {out_path}")
+    print(f"Figure 1 saved → {repo_relative(out_path)}")
     return fig
 
 
@@ -1067,7 +1179,7 @@ def make_figure2(sample_records, out_path,
                 fontsize=6.3, fontweight="bold", va="top")
 
     fig.savefig(out_path, format="pdf")
-    print(f"Figure 2 saved → {out_path}")
+    print(f"Figure 2 saved → {repo_relative(out_path)}")
     return fig
 
 
@@ -1983,7 +2095,7 @@ def replot_from_csvs(out_dir=None, sample_ids=None,
         print("[replot] No CSVs found in:", out_dir)
         return
     _make_all_combined_plots(results_list)
-    print(f"\n[replot] Done. Folder: {os.path.abspath(out_dir)}")
+    print(f"\n[replot] Done. Folder: {repo_relative(out_dir)}")
 
 
 def sanitize_name(s):
@@ -2075,7 +2187,7 @@ def save_all_energy_plot(results_list, out_path):
     fig.savefig(out_path, bbox_inches=full)
     _show_in_notebook(fig, os.path.basename(str(out_path)))
     plt.close(fig)
-    print(f"  Energy : {out_path}")
+    print(f"  Energy : {repo_relative(out_path)}")
 
 
 def save_all_paths_plot(results_list, out_path):
@@ -2120,7 +2232,7 @@ def save_all_paths_plot(results_list, out_path):
     fig.savefig(out_path)
     _show_in_notebook(fig, os.path.basename(str(out_path)))
     plt.close(fig)
-    print(f"  Paths  : {out_path}")
+    print(f"  Paths  : {repo_relative(out_path)}")
 
 
 def save_all_ratio_plot(results_list, out_path):
@@ -2165,7 +2277,7 @@ def save_all_ratio_plot(results_list, out_path):
     fig.savefig(out_path)
     _show_in_notebook(fig, os.path.basename(str(out_path)))
     plt.close(fig)
-    print(f"  G/Gc   : {out_path}")
+    print(f"  G/Gc   : {repo_relative(out_path)}")
 
 
 def save_full_fields_npz(

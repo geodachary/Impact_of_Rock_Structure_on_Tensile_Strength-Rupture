@@ -45,27 +45,51 @@ def _section(name):
 @needs_fields
 @pytest.mark.parametrize("path", FIELDS, ids=lambda p: p.stem)
 def test_field_matches_specimen_table(path):
-    """Elastic constants in the export agree with the table they came from."""
+    """The export carries the foliation-frame constants of its lithology.
+
+    These are properties of the rock, not of the specimen: the 90 degree test
+    loads along the foliation and gives E1 and nu12, the 0 degree test loads
+    across it and gives E2. The solver rotates this tensor to each specimen's
+    fabric angle, so reading the apparent modulus E(alpha) per specimen would
+    apply the orientation dependence twice.
+    """
+    from tools.ddm._toolkit import get_material_axes
+
     f = ft.load_field(path)
-    row = load_specimen_table().loc[f["sample_id"]]
-    assert float(f["E1_MPa"]) == pytest.approx(
-        float(row["Modulus_of_Elasticity"]) * 1e3, rel=1e-6)
-    assert float(f["nu12"]) == pytest.approx(float(row["Poisson_Ratio"]), abs=1e-9)
+    want = get_material_axes(str(f["rock"]))
+    assert float(f["E1_MPa"]) == pytest.approx(want["E1"] * 1e3, rel=1e-6)
+    assert float(f["E2_MPa"]) == pytest.approx(want["E2"] * 1e3, rel=1e-6)
+    assert float(f["G12_MPa"]) == pytest.approx(want["G12"] * 1e3, rel=1e-6)
+    assert float(f["nu12"]) == pytest.approx(want["nu12"], abs=1e-9)
 
 
 @needs_fields
-def test_poisson_ratio_is_not_a_single_constant():
-    """A constant nu across all specimens means the measured column was ignored."""
-    nus = {round(float(ft.load_field(p)["nu12"]), 6) for p in FIELDS}
-    measured = {round(float(v), 6) for v in load_specimen_table()["Poisson_Ratio"]}
-    assert len(nus) > 1, f"every specimen was solved with nu = {nus.pop()}"
-    assert nus == measured
+def test_poisson_ratio_is_one_value_per_lithology():
+    """nu12 is measured with E1, at 90 degrees, so it is a rock constant.
+
+    It used to vary specimen by specimen, which is what made the tensor
+    orientation-dependent before it was even rotated.
+    """
+    from tools.ddm._toolkit import get_material_axes
+
+    seen = {}
+    for path in FIELDS:
+        f = ft.load_field(path)
+        seen.setdefault(str(f["rock"]), set()).add(round(float(f["nu12"]), 9))
+    assert len(seen) == 2, f"expected two lithologies, got {sorted(seen)}"
+    for rock, values in seen.items():
+        assert len(values) == 1, (
+            f"{rock}: nu12 still varies between specimens, {sorted(values)}")
+        assert values.pop() == pytest.approx(
+            get_material_axes(rock)["nu12"], abs=1e-9)
 
 
-def test_solver_reads_poisson_from_the_table():
+def test_solver_reads_the_material_axes():
     src = _section("crack_energy_suite")
-    assert '"Poisson_Ratio"' in src, "Poisson_Ratio is not among the required columns"
-    assert "nu12 = float(nu_in)" in src, "nu12 is not taken from the per-specimen value"
+    assert "get_material_axes(rock)" in src, (
+        "the solver no longer reads the foliation-frame constants")
+    assert 'float(row["Poisson_Ratio"])' not in src, (
+        "the solver is reading a per-specimen Poisson ratio again")
 
 
 def test_displacement_cache_key_covers_the_material():

@@ -1,6 +1,6 @@
 """Section 4.2's fit statistics, including two with no producer.
 
-The cosine-law comparison (minima at 85.4 and 86.8 degrees, R2 0.877 and 0.869)
+The cosine-law comparison (minima at 85.4 and 86.6 degrees, R2 0.877 and 0.889)
 is the argument that a symmetric law misplaces the minimum, but
 ``ati_model.cosine_law`` is called by nothing. It reproduces only under an
 *unweighted* fit; the envelope beside it is weighted, which is not obvious from
@@ -55,7 +55,7 @@ def _cosine_fit(g):
 
 def test_the_cosine_law_comparison_reproduces(data):
     """The numbers Section 4.2 quotes against the adopted envelope."""
-    want = {"Augen gneiss": (85.4, 0.877), "Psammitic schist": (86.8, 0.869)}
+    want = {"Augen gneiss": (85.4, 0.877), "Psammitic schist": (86.6, 0.889)}
     for rock, (deg, r2) in want.items():
         got_deg, got_r2 = _cosine_fit(data[rock])
         assert got_deg == pytest.approx(deg, abs=0.15), (

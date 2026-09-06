@@ -29,8 +29,11 @@ from tools import output_dirs
 # --- inherited from earlier notebook cells ---------------------------
 from tools.ddm import (  # noqa: F401
     axis_angle, band_open_factor_from_sigma_n, build_segments_from_axis,
-    get_anisotropy_ratio, hertz_contact_halfwidth, reconstruct_grid,
+    get_anisotropy_ratio, get_material_axes, hertz_contact_halfwidth,
+    reconstruct_grid,
 )
+from tools.lithology import repo_relative
+from tools.ddm._toolkit import ROCK_ANISO_RATIO as _CANONICAL_ANISO_RATIO
 
 
 
@@ -929,11 +932,8 @@ def main(rock):
         smooth_theta_sigma_pix, spacing_m, t, target_sigma_xx_center_mpa, \
         theta_axis, theta_p, tick_params, title, vals
     _bind(rock)
-    ROCK_ANISO_RATIO = {
-        "augen gneiss": 2.037,
-        "psammitic schist": 3.763,
-        "psammatic schist": 3.763,   # historical spelling, still accepted
-    }
+    # One dict, defined in _toolkit and derived from the replicate table.
+    ROCK_ANISO_RATIO = dict(_CANONICAL_ANISO_RATIO)
     output_dir = os.path.join(os.getcwd(), output_dirs.FIGURE_DIR)
     os.makedirs(output_dir, exist_ok=True)
     cache_dir = os.path.join(output_dirs.fields(), "_cache_sigma1_theta_physics_v2")
@@ -1035,10 +1035,12 @@ def main(rock):
 
         rock = str(row["Rock_type"])
         anis_ratio = get_anisotropy_ratio(rock)
-        E1_in = float(row["Modulus_of_Elasticity"])
-        E2_in = float(row["Modulus_of_Elasticity"]) / anis_ratio
-        G_in = float(row["Shear_Modulus"]) if "Shear_Modulus" in df.columns else np.nan
-        nu12 = float(row["Poisson_Ratio"])
+        # Foliation-frame constants, per lithology; see get_material_axes.
+        _mx = get_material_axes(rock)
+        E1_in = float(_mx["E1"])
+        E2_in = float(_mx["E2"])
+        G_in = float(_mx["G12"])
+        nu12 = float(_mx["nu12"])
 
         cache_path = os.path.join(
             cache_dir,
@@ -1142,7 +1144,7 @@ def main(rock):
     outpath = os.path.join(output_dir, f"{_rock().key}_tensile_strain_proxy.pdf")
     plt.savefig(outpath, dpi=300, bbox_inches="tight", format="pdf")
     plt.show()
-    print(f"Saved: {outpath}")
-    print(f"Cache dir: {cache_dir}")
+    print(f"Saved: {repo_relative(outpath)}")
+    print(f"Cache dir: {repo_relative(cache_dir)}")
     print(f"Length ref (p{length_ref_percentile:.0f}) = {ref_mag:.3e}")
     print(f"Color vmax (p{color_vmax_percentile:.0f}) = {color_vmax:.3e}")

@@ -46,6 +46,8 @@ from tools.ddm import (  # noqa: F401
     compute_sample_stresses, deviation_arrays, make_figure1, make_figure2,
     output_prefix_from_records, set_pub_style,
 )
+from tools.lithology import repo_relative
+from tools.ddm._toolkit import ROCK_ANISO_RATIO as _CANONICAL_ANISO_RATIO
 
 
 
@@ -125,11 +127,8 @@ def main(rock):
           Median signed deviation vs. foliation angle using per-angle IQR
           error bars, with a pooled ECDF inset in the upper-left.
     """
-    ROCK_ANISO_RATIO = {
-        "augen gneiss": 2.037,
-        "psammitic schist": 3.763,
-        "psammatic schist": 3.763,   # historical spelling, still accepted
-    }
+    # One dict, defined in _toolkit and derived from the replicate table.
+    ROCK_ANISO_RATIO = dict(_CANONICAL_ANISO_RATIO)
     TOL_VIBRANT = [
         "#0077BB",  # blue
         "#EE7733",  # orange
@@ -281,7 +280,7 @@ def main(rock):
         except Exception:
             pass
     _df.to_csv(_path, index=False)
-    print(f"  deviation statistics -> {_path}")
+    print(f"  deviation statistics -> {repo_relative(_path)}")
 
     plt.show()
     print("\nDone. Both revised figures written to:", out_dir)

@@ -297,21 +297,21 @@ def main():
     # so the paragraph carries the argument rather than repeating them: which
     # quantity peaks where, and why the weakest orientation is neither.
     para9 = ("\\rev{Resolving the modeled stress state onto the foliation plane "
-        "separates the two ways a foliation can fail, and it carries an orientation "
-        "dependence the principal directions do not. The two tractions peak at "
+        "separates the two ways a foliation can fail. The principal directions vary "
+        "little with fabric angle, while the traction resolved on the rotating "
+        "foliation changes with it. The two tractions peak at "
         "different angles (Fig.~\\ref{fig:fabric_tractions}), and neither peaks where "
         "the rock is weakest. Below the sign change the fabric is clamped shut, so "
         "opening is unavailable whatever the weak-plane strength and the fabric can "
         "fail only in shear; the fraction of the interior in which the foliation is "
         "actually in tension grows from zero at $0^\\circ$ "
         f"to ${f(openf[G][-1],2)}$ in the gneiss and ${f(openf[P][-1],2)}$ in the schist at "
-        "$90^\\circ$, so even at full alignment half the disc still holds the planes "
-        "closed. The measured strength minimum sits at $75^\\circ$ in both "
-        "lithologies, at neither extremum but at the crossing between them, where the "
+        "$90^\\circ$, so even at full alignment part of the disc still holds the "
+        "planes closed. The measured strength minimum sits at $75^\\circ$ in both "
+        "lithologies, at the crossing between the two peaks, where the "
         "clamping traction has just relaxed toward zero while appreciable shear "
-        "remains. Weakness here is a coincidence of two conditions rather than the "
-        "maximum of either, which is why it falls beyond $45^\\circ$ and why a map of "
-        "principal directions cannot show it.}")
+        "remains. Two conditions coincide there, which is consistent with the "
+        "minimum falling beyond $45^\\circ$.}")
     patched = regenerate_block(s, "\\rev{Resolving the model", "\n", para9,
                                "subsec9 traction paragraph")
     if patched is not None:

@@ -1,0 +1,13 @@
+T_wp_over_T0,c_wp_over_c,production,gneiss_WT_onset_deg,gneiss_WS_peak_deg,gneiss_WT_at_or_below_45,schist_WT_onset_deg,schist_WS_peak_deg,schist_WT_at_or_below_45
+0.2,0.4,False,60,60,False,60,45,False
+0.2,0.6,False,60,60,False,60,45,False
+0.2,0.8,False,60,60,False,60,45,False
+0.35,0.4,False,75,60,False,60,45,False
+0.35,0.6,True,75,60,False,60,45,False
+0.35,0.8,False,75,60,False,60,60,False
+0.5,0.4,False,75,60,False,75,45,False
+0.5,0.6,False,75,60,False,75,45,False
+0.5,0.8,False,75,60,False,75,60,False
+0.7,0.4,False,90,60,False,90,45,False
+0.7,0.6,False,90,60,False,90,45,False
+0.7,0.8,False,90,60,False,90,60,False

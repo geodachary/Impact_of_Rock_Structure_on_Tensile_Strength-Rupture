@@ -89,11 +89,30 @@ outputs/fields/_cache_*/
 manuscript/
 
 
-# Cloud-sync scratch directories, not project content.
+# Cloud-sync scratch directories and local tool state, not project content.
 .tmp.driveupload/
+.tmp.drivedownload/
 .backup_0809/
+.claude/
 
-# revision_log.csv is tracked and published with the release, so it is not
-# listed here. It was, which did nothing: git ignores only untracked paths, so
-# the rule was a no-op that read as an intention to exclude a file the
-# repository actually ships.
+# revision_log.csv is an internal working document and is NOT published.
+# It was tracked until now, and a bare ignore rule would have done nothing,
+# because git ignores only untracked paths. It has been untracked with
+# `git rm --cached revision_log.csv`; the rule below keeps it that way and the
+# file stays in the working tree.
+revision_log.csv
+
+
+# Ignore Excel files, except the three workbooks the DATA POLICY above ships.
+# Without these negations the rule contradicts that policy: the workbooks are
+# already tracked, so git honours them today, but a regenerated copy would go
+# silently unstaged. tensile_samples_data.xlsx in particular is read by
+# tests/regression/test_input_table_has_one_source.py.
+*.xlsx
+*.xls
+*.xlsm
+*.xlsb
+!selected_all_samples.xlsx
+!tensile_samples_data.xlsx
+!rock_strength_metrics.xlsx
+

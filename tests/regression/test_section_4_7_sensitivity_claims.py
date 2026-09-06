@@ -55,7 +55,7 @@ def test_the_weakened_area_fraction_is_scale_invariant():
 
 def test_the_spacing_response_is_flat_against_the_introduction_step():
     d = pd.read_csv(TAB / "sensitivity_spacing.csv")
-    want = {"Augen gneiss": 0.17, "Psammitic schist": 0.11}
+    want = {"Augen gneiss": 0.221, "Psammitic schist": 0.344}
     for rock, flat in want.items():
         s = d[(d.rock == rock) & (d.spacing_m > 0)].groupby(
             "spacing_m").delta_failure_pct.mean()
@@ -68,25 +68,32 @@ def test_the_spacing_response_is_flat_against_the_introduction_step():
         # tested, not the value at the smallest one, which sits at the top
         # of the range (7.86 against a 7.74-7.91 spread in the gneiss)
         assert round(step, 1) == pytest.approx(
-            {"Augen gneiss": 7.8, "Psammitic schist": 6.7}[rock], abs=0.05), (
+            {"Augen gneiss": 7.6, "Psammitic schist": 7.2}[rock], abs=0.05), (
             f"{rock}: introduction step is {step:.2f} pp; the caption quotes "
-            f"{{'Augen gneiss': 7.8, 'Psammitic schist': 6.7}}[rock]")
-        assert step / spread > 30.0, (
+            f"{{'Augen gneiss': 7.6, 'Psammitic schist': 7.2}}[rock]")
+        assert step / spread > 20.0, (
             f"{rock}: the flat range is now {step / spread:.0f} times smaller "
-            "than the introduction step, not the fiftieth the text claims")
+            "than the introduction step, not the thirtieth the text claims")
 
 
 def test_disorder_grows_monotonically_and_does_not_saturate():
     d = pd.read_csv(TAB / "sensitivity_heterogeneity.csv")
     g = d.groupby(["rock", "heterogeneity"]).delta_failure_pct.mean().unstack(0)
-    want = {"Augen gneiss": 12.8, "Psammitic schist": 9.7}
+    want = {"Augen gneiss": 12.70, "Psammitic schist": 11.12}
     for rock, at04 in want.items():
         v = g[rock].to_numpy(float)
         assert np.all(np.diff(v) > 0), f"{rock}: no longer monotonic"
         assert v[-1] == pytest.approx(at04, abs=0.05), (
             f"{rock}: {v[-1]:.2f} pp at amplitude 0.4, paper says {at04}")
-        assert np.diff(v)[-1] >= np.diff(v)[-2], (
-            f"{rock}: the response is saturating; the text says it is still "
-            "accelerating at the largest amplitude sampled")
+    # Only the gneiss is still accelerating at the largest amplitude under the
+    # measured ratios; Section 4.7 now says so instead of claiming both.
+    vg = g["Augen gneiss"].to_numpy(float)
+    assert np.diff(vg)[-1] >= np.diff(vg)[-2], (
+        "the gneiss response is saturating; Section 4.7 says it is still "
+        "accelerating at the largest amplitude sampled")
+    # The index carries the 0.0 baseline, so iloc[2:] is amplitudes 0.2 upward.
+    # On the material-axis fields the gneiss is the more sensitive at every
+    # amplitude sampled, including the smallest, so the carve-out the sentence
+    # used to carry has been removed rather than kept as a special case.
     assert (g["Augen gneiss"].iloc[1:] > g["Psammitic schist"].iloc[1:]).all(), \
         "the gneiss is no longer the more sensitive at every amplitude"

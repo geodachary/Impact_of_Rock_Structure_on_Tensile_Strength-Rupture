@@ -34,37 +34,48 @@ pytestmark = pytest.mark.skipif(not (TAB / "energy_localization.csv").is_file(),
 
 def test_the_elongation_ranges():
     d = pd.read_csv(TAB / "energy_localization.csv")
-    want = {"Augen gneiss": (1.10, 1.61), "Psammitic schist": (1.14, 4.86)}
+    want = {"Augen gneiss": (1.17, 1.55), "Psammitic schist": (1.17, 4.79)}
     for rock, (lo, hi) in want.items():
         e = d[d.rock == rock].elongation
         assert e.min() == pytest.approx(lo, abs=0.01), f"{rock} min {e.min():.3f}"
         assert e.max() == pytest.approx(hi, abs=0.01), f"{rock} max {e.max():.3f}"
 
 
-def test_the_corridor_forms_only_in_the_schist_above_sixty_degrees():
+def test_the_corridor_forms_only_in_the_schist_at_the_fabric_end_members():
+    """The corridor is a schist feature and it sits at the fabric end members.
+
+    Under the per-specimen elastic constants it appeared at 60-90 degrees;
+    with the material-axis constants it forms where the foliation is either
+    normal to the loading axis or parallel to it, at 0, 15 and 90 degrees,
+    and the region is two lobes at every intermediate angle. The gneiss never
+    forms one.
+    """
     d = pd.read_csv(TAB / "energy_localization.csv")
     corr = d[d.corridor]
     assert set(corr.rock) == {"Psammitic schist"}, (
         "a corridor now forms in the gneiss; the contrast the text draws is gone")
-    assert sorted(corr.angle_deg) == [60.0, 75.0, 90.0]
-    assert corr.elongation.min() == pytest.approx(4.7, abs=0.05)
-    assert corr.elongation.max() == pytest.approx(4.9, abs=0.05)
+    assert sorted(corr.angle_deg) == [0.0, 15.0, 90.0]
+    assert corr.elongation.min() == pytest.approx(4.6, abs=0.05)
+    assert corr.elongation.max() == pytest.approx(4.8, abs=0.05)
+    mid = d[(d.rock == "Psammitic schist") & (~d.corridor)]
+    assert (mid.n_components == 2).all(), (
+        "the schist no longer breaks into two lobes at intermediate angles")
     g = d[d.rock == "Augen gneiss"]
     assert (g.n_components == 2).all(), "the gneiss no longer stays two lobes"
 
 
 def test_the_shared_colour_scale():
     d = pd.read_csv(TAB / "energy_colour_scale.csv").set_index("rock")
-    assert d.loc["Psammitic schist", "u_95th_percentile_MPa"] == pytest.approx(0.078, abs=0.001)
-    assert d.loc["Augen gneiss", "u_95th_percentile_MPa"] == pytest.approx(0.050, abs=0.001)
+    assert d.loc["Augen gneiss", "u_95th_percentile_MPa"] == pytest.approx(0.035, abs=0.001)
+    assert d.loc["Psammitic schist", "u_95th_percentile_MPa"] == pytest.approx(0.036, abs=0.001)
 
 
 def test_every_energy_selected_step_clears_gc():
     d = pd.read_csv(TAB / "fig20_GGc_profile_metrics.csv")
     assert int(d.n_below_Gc_energy.sum()) == 0, (
         "an energy-selected step now falls below Gc")
-    assert d.min_G_over_Gc_energy.min() == pytest.approx(1.02, abs=0.005)
-    assert d.phys_fraction.mean() == pytest.approx(0.62, abs=0.005)
+    assert d.min_G_over_Gc_energy.min() == pytest.approx(1.00, abs=0.005)
+    assert d.phys_fraction.mean() == pytest.approx(0.77, abs=0.005)
 
 
 def test_the_driving_force_spans_about_eight_decades():
@@ -82,9 +93,11 @@ def test_the_two_subsections_agree_about_the_band_coefficients():
     quoted = [f"${v:.1f}$" for v in (d.loc["low (0-30 deg)", "mean_CV"],
                                      d.loc["intermediate (45-60 deg)", "mean_CV"],
                                      d.loc["high (75-90 deg)", "mean_CV"])]
-    assert quoted == ["$3.6$", "$3.4$", "$2.3$"], quoted
+    assert quoted == ["$3.7$", "$4.2$", "$2.4$"], quoted
     # both places must carry the same triple and nothing else
-    for stale in ("$3.12$", "$3.55$", "$3.01$, $3.1$", "$4.4$ and $3.1$"):
+    for stale in ("$3.12$", "$3.55$", "$3.01$, $3.1$", "$4.4$ and $3.1$",
+                  "$3.7$, $3.4$ and $2.3$",
+                  "$3.6$, $3.4$ and $2.3$", "$3.2$, $4.3$ and $2.6$"):
         assert stale not in t, f"a superseded band figure is back: {stale}"
-    assert t.count("$3.6$, $3.4$ and $2.3$") == 2, (
+    assert t.count("$3.7$, $4.2$ and $2.4$") == 2, (
         "the two subsections no longer state the same band coefficients")

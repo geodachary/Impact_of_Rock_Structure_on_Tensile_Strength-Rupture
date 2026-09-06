@@ -112,7 +112,10 @@ def run(script: str, root: Path | None = None, display_figures: bool = True) -> 
             unique.append(p)
     if display_figures and unique:
         show(unique)
-    return unique
+    # Returned relative: this list is the last expression of several notebook
+    # cells, so Jupyter echoes it into the stored output. Absolute paths there
+    # put the author's home directory in the published notebook.
+    return [Path(p).relative_to(root) for p in unique]
 
 
 def run_all(scripts, root: Path | None = None, display_figures: bool = True) -> list:

@@ -31,6 +31,7 @@ from tools.ddm import (  # noqa: F401
     choose_smallest_near_peak, load_sample_fields_physical,
     npz_path_for_sample, summarize_modes,
 )
+from tools.lithology import repo_relative
 
 
 
@@ -453,7 +454,7 @@ def main():
     _sweep["adopted_psammitic_schist"] = np.isclose(_sweep.k_C, best_kC_s)
     _out = Path(output_dirs.tables()) / "kmax_softening_sweep.csv"
     _sweep.to_csv(_out, index=False)
-    print(f"Sweep table saved to {_out}")
+    print(f"Sweep table saved to {repo_relative(_out)}")
     print(f"  specimen-to-specimen SD: gneiss "
           f"{_sweep.sd_augen_gneiss.min():.2f}-{_sweep.sd_augen_gneiss.max():.2f}, "
           f"schist {_sweep.sd_psammitic_schist.min():.2f}-"
@@ -511,5 +512,5 @@ def main():
     for _d in (output_dirs.figures(), output_dirs.ensure(output_dirs.DOC_DIR)):
         _p = Path(_d) / OUTPUT_FIG
         plt.savefig(_p, dpi=300, bbox_inches="tight", format="pdf")
-        print(f"Figure saved to {_p}")
+        print(f"Figure saved to {repo_relative(_p)}")
     plt.show()

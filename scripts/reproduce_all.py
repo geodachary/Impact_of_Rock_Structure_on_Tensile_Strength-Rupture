@@ -59,7 +59,10 @@ def record_environment(out: Path) -> None:
         "os": platform.platform(),
         "machine": platform.machine(),
         "python": platform.python_version(),
-        "executable": sys.executable,
+        # Name only, not the full path: the absolute path to the interpreter
+        # carries the author's home directory into a published record, and the
+        # environment name plus the versions below is what a reader needs.
+        "environment": Path(sys.executable).parent.parent.name,
         "numpy": np.__version__,
         "scipy": scipy.__version__,
         "pandas": pd.__version__,
@@ -68,7 +71,7 @@ def record_environment(out: Path) -> None:
         "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
     (out / output_dirs.TABLE_DIR / "environment.json").write_text(json.dumps(info, indent=2))
-    log(f"environment recorded -> {out / output_dirs.TABLE_DIR / 'environment.json'}")
+    log(f"environment recorded -> {output_dirs.TABLE_DIR}/environment.json")
 
 
 def stage_trace_validation(out: Path) -> dict:

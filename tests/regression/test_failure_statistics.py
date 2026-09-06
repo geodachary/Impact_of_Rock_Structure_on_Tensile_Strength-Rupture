@@ -86,24 +86,35 @@ def test_failed_fraction_minimum_matches_the_final_data(stats):
 
 
 @needs_fields
-def test_mixed_competition_is_confined_to_low_fabric_angles(stats):
-    """Where the governing and runner-up utilities are close, and where not.
+def test_three_mode_mixed_competition_peaks_where_the_branches_meet(stats):
+    """Where the governing and runner-up utilities are close, per lithology.
 
-    This once asserted that no specimen exceeded 40% mixed, which was true of
-    the earlier strength calibration. With the corrected cohesion the two
-    matrix utilities run much closer at low fabric angle and the conditional
-    mixed fraction reaches 76%. That is a real change in the competition, not
-    a leak: what has to stay true for Section 4.6 is that it is confined to
-    the low-angle end, where the fabric is clamped and neither matrix
-    criterion is clearly ahead.
+    These are the superseded three-mode ``mixed_cond`` values. The manuscript
+    does not quote them: Section 4.6 declares the four-class classifier the one
+    reported, and test_mixed_fraction_has_one_definition holds the text to it.
+    They are still checked because the failed fraction in Fig. C.26b is read
+    from this same file, so the file has to stay sound.
+
+    An earlier version asserted the competition was confined to low fabric
+    angle in both rocks. That is true of the gneiss, whose peak is at 0 deg
+    with the fabric clamped and neither matrix criterion ahead, but not of the
+    schist, which peaks at 60 deg where the weak-plane and matrix branches
+    cross. The two lithologies are therefore checked separately.
     """
-    lo = stats[stats.angle_deg <= 30.0]
-    hi = stats[stats.angle_deg >= 45.0]
-    assert lo.mixed_cond.max() > hi.mixed_cond.max(), (
-        "mixed competition is no longer strongest at low fabric angle")
-    assert hi.mixed_cond.max() < 40.0, (
-        f"mixed competition reaches {hi.mixed_cond.max():.1f}% at or above "
-        "45 deg, where the text describes one utility as clearly governing")
+    g = stats[stats.rock == "Augen gneiss"]
+    sch = stats[stats.rock == "Psammitic schist"]
+    assert int(g.loc[g.mixed_cond.idxmax(), "angle_deg"]) == 0, (
+        "the gneiss three-mode mixed competition no longer peaks with the "
+        "fabric clamped at 0 deg")
+    assert g[g.angle_deg <= 30].mixed_cond.max() > \
+        g[g.angle_deg >= 45].mixed_cond.max(), (
+        "gneiss mixed competition is no longer strongest at low fabric angle")
+    assert int(sch.loc[sch.mixed_cond.idxmax(), "angle_deg"]) == 60, (
+        "the schist three-mode mixed competition no longer peaks at 60 deg, "
+        "where the weak-plane and matrix branches cross")
+    assert sch[sch.angle_deg <= 15].mixed_cond.max() == 0.0, (
+        "the schist now shows mixed competition at 0 and 15 deg, where matrix "
+        "shear governs without a rival")
 
 
 def test_notebook_literals_are_no_longer_the_source():

@@ -13,6 +13,8 @@ import pytest
 from tools import lithology as lith
 from tools import traces as tr
 from tools import failure_classification as fc
+from tools import strain_partitioning as sp
+from tools import fabric_tractions as ft
 from tools.conventions import RADIUS_M
 
 ANGLES = (0, 15, 30, 45, 60, 75, 90)
@@ -112,16 +114,36 @@ def test_null_model_is_evaluated_on_the_same_specimens():
 # Four-mechanism classification, per lithology, on real cached fields
 # ---------------------------------------------------------------------------
 def _classify(sample):
+    """Classify one specimen exactly as the reported pipeline does.
+
+    The strengths must come from ``strain_partitioning.specimen_strengths``,
+    not from placeholder constants. An earlier version of this helper passed
+    T_wp = c_wp = 1 and T_m = c_m = 2, which is a different material from the
+    one the study reports, and the class fractions it produced disagreed with
+    outputs/tables/fourclass_area_fractions.csv by two orders of magnitude.
+    A test that exercises a different material than the manuscript cannot
+    protect the manuscript, so the call below mirrors
+    scripts/reproduce_all._classify_panel.
+    """
     npz = lith.field_cache_path(sample)
     if not npz.exists():
         pytest.skip(f"field cache absent for sample {sample}")
     d = np.load(npz, allow_pickle=True)
-    return fc.classify(
+    p = sp.specimen_strengths()[int(sample)]
+    res = fc.classify(
         d["sxx"], d["syy"], d["txy"], alpha_f=float(d["alpha_wp_line_rad"]),
-        T_wp=1.0, c_wp=1.0, phi_wp=np.radians(30.0),
-        T_m=2.0, c_m=2.0, phi_m=np.radians(30.0),
-        weak_plane_weight=d["wp_weight"], activation_floor=0.05,
-        threshold=1.0, eta_mix=0.9, n_theta=181), d
+        T_wp=sp.WEAK_T_RATIO * p["T_m"], c_wp=sp.WEAK_C_RATIO * p["c_m"],
+        phi_wp=p["phi_m"], T_m=p["T_m"], c_m=p["c_m"], phi_m=p["phi_m"],
+        weak_plane_weight=d["wp_weight"], activation_floor=sp.ACTIVATION_FLOOR,
+        threshold=sp.THRESHOLD, eta_mix=sp.ETA_MIX, n_theta=sp.N_THETA)
+    return res, d
+
+
+def _core(d):
+    """The 0.85 R reporting interior, as used for every field statistic."""
+    m = d["M"].astype(bool)
+    r = np.hypot(np.asarray(d["X"]), np.asarray(d["Y"]))
+    return m & (r <= ft.CORE_FRAC * float(np.nanmax(r[m])))
 
 
 @pytest.mark.parametrize("sample", [1, 7, 8, 14])
@@ -152,19 +174,27 @@ def test_mixed_flag_is_secondary_only(sample):
                        [fc.CLASS_CODES[c] for c in fc.CLASS_ORDER]).all()
 
 
-def test_weak_plane_opening_grows_as_fabric_aligns_with_loading():
+def _wt_fraction(sample):
+    res, d = _classify(sample)
+    return fc.class_fractions(res["mode_code"], _core(d))["WT"]
+
+
+@pytest.mark.parametrize("lo,hi,expected_hi", [(1, 7, 0.144), (8, 14, 0.151)])
+def test_weak_plane_opening_grows_as_fabric_aligns_with_loading(lo, hi, expected_hi):
     """Physical expectation stated before assertion.
 
-    At alpha_exp = 0 the foliation lies across the loading diameter and carries
-    little opening traction; at 90 it is loading-parallel and should carry much
-    more. WT area fraction must therefore increase, for both lithologies.
+    At alpha_exp = 0 the foliation lies across the loading diameter, the planes
+    are clamped in compression, and no weak-plane opening is admissible. At 90
+    the planes are loading-parallel and opening is the delamination mechanism.
+    Section 4 reports the WT area fraction as zero below 75 degrees and 0.144
+    (gneiss) and 0.151 (schist) at 90, so those are the values locked here.
     """
-    for lo, hi in ((1, 7), (8, 14)):
-        r0, d0 = _classify(lo)
-        r9, d9 = _classify(hi)
-        f0 = fc.class_fractions(r0["mode_code"], d0["M"].astype(bool))["WT"]
-        f9 = fc.class_fractions(r9["mode_code"], d9["M"].astype(bool))["WT"]
-        assert f9 > f0, f"WT did not grow with fabric alignment: {f0} -> {f9}"
+    f0 = _wt_fraction(lo)
+    f9 = _wt_fraction(hi)
+    assert f0 == 0.0, f"weak planes are clamped at 0 deg, WT must vanish: {f0}"
+    assert f9 > f0, f"WT did not grow with fabric alignment: {f0} -> {f9}"
+    assert abs(f9 - expected_hi) < 5e-4, (
+        f"WT at 90 deg drifted from the reported {expected_hi}: {f9}")
 
 
 def test_class_fractions_sum_to_one():

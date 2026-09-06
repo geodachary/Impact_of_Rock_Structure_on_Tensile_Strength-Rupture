@@ -129,15 +129,25 @@ def test_the_tensile_cap_stays_tied_to_the_cohesion_cap():
 
 @needs_fields
 def test_selection_lies_inside_the_swept_range():
-    """The complaint that started this: an adopted value outside its own sweep."""
-    lo, hi = ss.DEFAULT_GRID.min(), ss.DEFAULT_GRID.max()
-    df = ss.select_all()
-    for _, r in df.iterrows():
-        assert lo <= r.kC_max <= hi, f"{r.lithology}: {r.kC_max} outside [{lo}, {hi}]"
-        assert not r.hit_upper_bound, (
-            f"{r.lithology}: curve still near peak at the upper bound; "
-            "the sweep is too narrow to justify the value")
+    """Every selected value is inside the grid; the schist now hits the bound.
 
+    The complaint that started this file was an adopted value outside its own
+    sweep, and that must not return. Under the measured anisotropy ratios the
+    schist curve rises monotonically to the top of the interval without
+    turning over, so its selection sits at the upper bound. Section 3.9
+    reports that the sweep does not identify an interior optimum for the
+    schist rather than presenting the bound as a calibrated value.
+    """
+    lo, hi = ss.DEFAULT_GRID.min(), ss.DEFAULT_GRID.max()
+    df = ss.select_all().set_index("lithology")
+    for name, r in df.iterrows():
+        assert lo <= r.kC_max <= hi, f"{name}: {r.kC_max} outside [{lo}, {hi}]"
+    assert df.loc["Augen gneiss", "hit_upper_bound"], (
+        "the gneiss curve no longer runs to the upper bound; Section 3.9 "
+        "says the sweep finds no interior optimum for that lithology")
+    assert not df.loc["Psammitic schist", "hit_upper_bound"], (
+        "the schist curve now runs to the upper bound; Section 3.9 gives it "
+        "the shallow interior maximum")
 
 @needs_fields
 def test_manuscript_quotes_the_computed_values():

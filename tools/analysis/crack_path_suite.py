@@ -53,10 +53,12 @@ from tools import output_dirs
 from tools.ddm import (  # noqa: F401
     _adaptive_N_outer, _adaptive_kink_n, _grid_axes,
     _make_all_combined_plots, _safe_compute_psi_pref, _safe_wp_weight,
-    bilinear_scalar, bind_sif_hooks, get_anisotropy_ratio,
+    bilinear_scalar, bind_sif_hooks, get_anisotropy_ratio, get_material_axes,
     import_or_load_solver, load_module_from_path, replot_from_csvs,
     sif_hooks, validate_solver_api,
 )
+from tools.lithology import repo_relative
+from tools.ddm._toolkit import ROCK_ANISO_RATIO as _CANONICAL_ANISO_RATIO
 
 
 
@@ -632,10 +634,12 @@ def build_fields_and_run(dfmeta_row, ds_frac=0.010, max_steps=1400, N_outer=80,
         weak_spacing = _rock().spacing_m
     rock, ang_deg, Dmm, tmm, PkN, Tm_in, Coh_in, Phi_in, E1_in, G12_in = dfmeta_row
     anis_ratio = get_anisotropy_ratio(rock)
-    E1 = modulus_to_MPa(E1_in)
-    G12 = modulus_to_MPa(G12_in)
-    E2 = E1 / anis_ratio
-    nu12 = float(nu12)
+    # Foliation-frame constants, per lithology; see get_material_axes.
+    _mx = get_material_axes(rock)
+    E1 = modulus_to_MPa(_mx["E1"])
+    E2 = modulus_to_MPa(_mx["E2"])
+    G12 = modulus_to_MPa(_mx["G12"])
+    nu12 = float(_mx["nu12"])
     alpha_const = float(bd.map_angle_to_alpha(float(ang_deg), angle_map="direct"))
     alpha_wp_line = float(wrap_pi_half_scalar(alpha_const))
     D = float(Dmm) * 1e-3
@@ -1017,7 +1021,7 @@ def run_smoke_all(dfmeta, out_dir=output_dirs.FIELD_DIR, sample_ids=None, load_f
             pass                      # unreadable or from an older schema
     summary = summary.sort_values("sample_id").reset_index(drop=True)
     summary.to_csv(summary_path, index=False)
-    print(f"\n=== Done. Folder: {os.path.abspath(out_dir)} ===")
+    print(f"\n=== Done. Folder: {repo_relative(out_dir)} ===")
 
 
 def run_section(argv=None):
@@ -1215,11 +1219,8 @@ def main(rock):
     _COLORS = ["#0072B2", "#E69F00", "#009E73", "#D55E00",
                "#CC79A7", "#56B4E9", "#F0E442"]
     _ANGLE_MARKERS = {0: "o", 15: "s", 30: "^", 45: "D", 60: "v", 75: "P", 90: "X"}
-    ROCK_ANISO_RATIO = {
-        "augen gneiss": 2.037,
-        "psammitic schist": 3.763,
-        "psammatic schist": 3.763,   # historical spelling, still accepted
-    }
+    # One dict, defined in _toolkit and derived from the replicate table.
+    ROCK_ANISO_RATIO = dict(_CANONICAL_ANISO_RATIO)
     bd = None
     SIF_FUN = None
     TRY_SIF = None

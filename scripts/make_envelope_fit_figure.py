@@ -103,11 +103,11 @@ def main(n_boot):
               f"eta={f['eta']:.3f}  beta_p={f['beta_peak_deg']:.1f}  "
               f"({n_ok}/{n_boot} bootstrap fits converged)")
 
-    axes[0].set_xlabel(r"Fabric angle, $\beta$ (deg)")
+    axes[0].set_xlabel(r"Fabric angle, $\alpha$ (deg)")
     axes[0].set_ylabel("Tensile strength (MPa)")
     axes[0].legend(frameon=True, fontsize=LEGEND_FS, loc="lower left")
     axes[1].axhline(0.0, color="0.3", ls="--", lw=1.2)
-    axes[1].set_xlabel(r"Fabric angle, $\beta$ (deg)")
+    axes[1].set_xlabel(r"Fabric angle, $\alpha$ (deg)")
     axes[1].set_ylabel("Residual (MPa)")
 
     for a in axes:

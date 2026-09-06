@@ -29,12 +29,14 @@ from tools import output_dirs
 
 # --- inherited from earlier notebook cells ---------------------------
 from tools.ddm import (  # noqa: F401
-    angle_axis, get_anisotropy_ratio, make_segments,
+    angle_axis, get_anisotropy_ratio, get_material_axes, make_segments,
     modulus_to_Pa_from_csv, principal_strain_and_angle,
     reconstruct_grid_and_mask, strains_from_stress_TIsotropic,
     tensile_stress_from_sigma1_theta,
 )
 from tools.analysis.strain_proxy import compute_sigma1plus_and_theta_for_sample
+from tools.lithology import repo_relative
+from tools.ddm._toolkit import ROCK_ANISO_RATIO as _CANONICAL_ANISO_RATIO
 
 
 
@@ -150,11 +152,8 @@ def main(rock):
         theta_e, theta_p, theta_rad, thickness, tick_params, title, txy_pa, \
         vals
     _bind(rock)
-    ROCK_ANISO_RATIO = {
-        "augen gneiss": 2.037,
-        "psammitic schist": 3.763,
-        "psammatic schist": 3.763,   # historical spelling, still accepted
-    }
+    # One dict, defined in _toolkit and derived from the replicate table.
+    ROCK_ANISO_RATIO = dict(_CANONICAL_ANISO_RATIO)
     output_dir = os.path.join(os.getcwd(), output_dirs.FIGURE_DIR)
     os.makedirs(output_dir, exist_ok=True)
     cache_dir = os.path.join(output_dirs.fields(), "_cache_solver_fields_physics_v2")
@@ -256,10 +255,12 @@ def main(rock):
         rock = str(row["Rock_type"])
         anis_ratio = get_anisotropy_ratio(rock)
 
-        E1 = modulus_to_Pa_from_csv(float(row["Modulus_of_Elasticity"]))
-        E2 = E1 / anis_ratio
-        nu12_local = float(row["Poisson_Ratio"])
-        G12 = modulus_to_Pa_from_csv(float(row["Shear_Modulus"])) if "Shear_Modulus" in df.columns else np.sqrt(E1 * E2) / (2.0 * (1.0 + nu12_local))
+        # Foliation-frame constants, per lithology; see get_material_axes.
+        _mx = get_material_axes(rock)
+        E1 = modulus_to_Pa_from_csv(float(_mx["E1"]))
+        E2 = modulus_to_Pa_from_csv(float(_mx["E2"]))
+        nu12_local = float(_mx["nu12"])
+        G12 = modulus_to_Pa_from_csv(float(_mx["G12"]))
 
         # Everything that changes the solved field goes into the key. The
         # previous key carried only the specimen index, grid and spacing, so a
@@ -286,11 +287,11 @@ def main(rock):
             Xtmp, Ytmp, masktmp, sigma1_plus, theta_p, meta = compute_sigma1plus_and_theta_for_sample(
                 diameter,
                 thickness,
-                float(row["Modulus_of_Elasticity"]),
-                float(row["Modulus_of_Elasticity"]) / anis_ratio,
-                float(row["Poisson_Ratio"]),
+                float(_mx["E1"]),
+                float(_mx["E2"]),
+                float(_mx["nu12"]),
                 theta_rad,
-                float(row["Shear_Modulus"]) if "Shear_Modulus" in df.columns else np.nan,
+                float(_mx["G12"]),
                 target_sigma_xx_center_mpa=target_sigma_xx_center_mpa,
                 spacing_m=spacing_m,
                 grid_N=grid_N,
@@ -375,6 +376,6 @@ def main(rock):
     outpath = os.path.join(output_dir, f"{_rock().key}_principal_tensile_strain.pdf")
     plt.savefig(outpath, dpi=300, bbox_inches="tight", format="pdf")
     plt.show()
-    print(f"Saved: {outpath}")
-    print(f"Cache dir: {cache_dir}")
+    print(f"Saved: {repo_relative(outpath)}")
+    print(f"Cache dir: {repo_relative(cache_dir)}")
     print(f"Length reference magnitude (p{scale_percentile:.0f}) = {ref_mag:.3e}")

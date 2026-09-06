@@ -27,6 +27,7 @@ from tools.ddm import (  # noqa: F401
     create_triangular_mesh_in_disk, integrate_line_force, sample_line,
 )
 from tools.data_io import load_specimen_table
+from tools.lithology import repo_relative
 
 
 
@@ -239,4 +240,4 @@ def main(rock):
     fig.savefig(outpath, format="pdf", dpi=300, bbox_inches="tight",
                 facecolor="white", edgecolor="none")
     plt.show()
-    print(f"Saved: {outpath}")
+    print(f"Saved: {repo_relative(outpath)}")

@@ -23,7 +23,7 @@ from tools.ddm._toolkit import deviation_arrays, pooled_equal_weight_abs_delta
 _have = all(lith.field_cache_path(s).exists() for s in range(1, 15))
 pytestmark = pytest.mark.skipif(not _have, reason="fields not exported yet")
 
-GNEISS_MEDIANS = [2.6, 12.7, 26.7, 42.3, 58.5, 74.5, 86.9]
+GNEISS_MEDIANS = [2.9, 14.9, 29.5, 43.8, 58.5, 73.9, 87.1]
 
 
 def _records():
@@ -64,16 +64,16 @@ def test_the_two_lithologies_agree_to_within_the_quoted_margin(records):
     s = {r["angle"]: float(np.median(np.abs(r["delta_deg"])))
          for r in records["Psammitic schist"]}
     worst = max(abs(g[a] - s[a]) for a in g)
-    assert worst <= 2.8, (
+    assert worst <= 3.8, (
         f"the lithologies now differ by {worst:.2f} deg; both the caption and "
-        "the text say 2.8")
+        "the text say 3.8")
     assert worst > 1.0, (
         "the caption previously claimed agreement to within a degree, which "
         f"was wrong at {worst:.2f}; if that is now true, fix the text too")
 
 
 def test_the_pooled_medians_need_the_equal_weight_pooling(records):
-    want = {"Augen gneiss": 33.1, "Psammitic schist": 27.1}
+    want = {"Augen gneiss": 36.4, "Psammitic schist": 39.8}
     for rock, expect in want.items():
         rr = [r for r in records[rock] if r["angle"] != 90]
         got = float(np.median(pooled_equal_weight_abs_delta(rr)))
@@ -91,16 +91,22 @@ def test_mixed_mode_competition_peaks_at_low_angle_not_at_the_minimum():
         m = np.asarray(p["mixed_flag"])[p["core_mask"]]
         frac.setdefault(p["lithology"], {})[int(p["angle_deg"])] = 100.0 * m.mean()
 
-    assert frac["Augen gneiss"][0] == pytest.approx(20.8, abs=0.2)
-    assert frac["Psammitic schist"][15] == pytest.approx(20.7, abs=0.2)
-    assert frac["Augen gneiss"][75] == pytest.approx(0.6, abs=0.15)
+    # On the material-axis fields the competition is an intermediate-angle
+    # feature in both rocks: it is exactly zero at the clamped end member,
+    # where matrix shear governs without a rival, peaks at 45 deg in the
+    # gneiss and 60 deg in the schist, and vanishes again once the fabric is
+    # loading-parallel. It used to be described as a low-angle gneiss feature,
+    # which was an artefact of the per-specimen elastic constants.
+    assert frac["Augen gneiss"][0] == pytest.approx(0.0, abs=0.05)
+    assert frac["Psammitic schist"][0] == pytest.approx(0.0, abs=0.05)
+    assert frac["Augen gneiss"][45] == pytest.approx(6.1, abs=0.2)
+    assert frac["Psammitic schist"][60] == pytest.approx(7.6, abs=0.2)
+    assert frac["Augen gneiss"][75] == pytest.approx(0.9, abs=0.15)
     assert frac["Psammitic schist"][75] == pytest.approx(0.0, abs=0.05)
+    assert max(frac["Augen gneiss"], key=lambda a: frac["Augen gneiss"][a]) == 45
+    assert max(frac["Psammitic schist"], key=lambda a: frac["Psammitic schist"][a]) == 60
     for rock, f in frac.items():
         peak = max(f, key=lambda a: f[a])
-        assert peak <= 15, (
-            f"{rock}: mixed-mode competition now peaks at {peak} deg. The text "
-            "says it is greatest at the low angles and near zero at the "
-            "strength minimum.")
-        assert f[75] < f[peak] / 10.0, (
+        assert f[75] < f[peak] / 6.0, (
             f"{rock}: mixed-mode fraction at 75 deg is no longer negligible "
             "beside its peak")

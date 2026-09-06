@@ -36,22 +36,28 @@ def tex():
 @needs_fields
 def test_the_roots_stay_separated_by_the_quoted_margin(tex):
     """The claim that makes H real and positive definite, over all fourteen."""
-    said = re.search(r"ranging from \$([\d.]+)\$ to\s*\n?\$([\d.]+)\$", tex)
+    # The elastic constants are properties of the lithology, so the separation
+    # is one value per rock rather than a range over fourteen specimens. It was
+    # a range only while the constants were re-read per specimen, which applied
+    # the fabric orientation twice; see test_e2_provenance.
+    said = re.search(r"\$0\.66\$ in the gneiss and\s*\n?\$([\d.]+)\$ in the schist", tex)
     assert said, "the root-separation sentence is no longer in its expected form"
-    lo_said, hi_said = float(said.group(1)), float(said.group(2))
 
-    seps = []
+    seps = {}
     for sid in range(1, 15):
         d = np.load(lith.field_cache_path(sid), allow_pickle=True)
         p1, p2 = lekh_roots_p(float(d["E1_MPa"]) * 1e6, float(d["E2_MPa"]) * 1e6,
                               float(d["nu12"]), float(d["G12_MPa"]) * 1e6)
         assert p1.imag > 0 and p2.imag > 0, f"specimen {sid}: root left the upper half plane"
-        seps.append(abs(p1 - p2))
+        seps.setdefault(lith.lithology_of_sample(sid).display_name, []).append(abs(p1 - p2))
 
-    assert min(seps) == pytest.approx(lo_said, abs=0.005), (
-        f"smallest separation is {min(seps):.4f}, the paper says {lo_said}")
-    assert max(seps) == pytest.approx(hi_said, abs=0.005), (
-        f"largest separation is {max(seps):.4f}, the paper says {hi_said}")
+    for rock, vals in seps.items():
+        assert max(vals) - min(vals) < 1e-6, (
+            f"{rock}: the root separation still varies between specimens, "
+            f"{min(vals):.4f} to {max(vals):.4f}; the constants should be "
+            "lithology properties")
+    assert seps["Augen gneiss"][0] == pytest.approx(0.66, abs=0.005)
+    assert seps["Psammitic schist"][0] == pytest.approx(float(said.group(1)), abs=0.005)
 
 
 @needs_fields
@@ -87,7 +93,11 @@ def test_tensile_failure_at_high_angle_is_entirely_weak_plane():
             f"specimen {sid}: {wt} WT and {mt} MT points. Section 3.7 states "
             "the tensile-governed points at high angle are entirely WT.")
 
+    # Matrix tensile is empty under the measured anisotropy ratios. It held
+    # 0.120 of the gneiss interior at 0 degrees while the adopted ratios were
+    # in force; Sections 3.7 and 4.6 now report the class as absent, so any
+    # reappearance means the classification has moved again.
     gneiss_mt = {s: counts[s][1] for s in range(1, 8) if counts[s][1] > 0}
-    assert set(gneiss_mt) == {1}, (
+    assert not gneiss_mt, (
         f"matrix-tensile points now appear in gneiss specimens {sorted(gneiss_mt)}; "
-        "Section 3.7 states they arise only at 0 degrees.")
+        "Sections 3.7 and 4.6 state the class is empty.")

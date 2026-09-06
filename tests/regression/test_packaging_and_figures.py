@@ -257,25 +257,29 @@ def test_orientation_statistics_match_locked_step2_values():
     # no longer depends on where the window is drawn. The windowed variant
     # remains computable via domain="central_window" and still reproduces the
     # previously published values exactly.
-    # Re-locked at M = 48 (2026-08-29). The Airy series order was pinned at 24
-    # by literals at four call sites, so every field was under-converged; the
-    # boundary-traction residual fell from 6.6e-2 to 6.3e-3 when that was fixed.
-    # The predicted orientations moved by up to 4 degrees on individual
-    # specimens. The within-5 count fell from 10 to 9 and the worst error grew
-    # from 7.5 to 9.0, so the agreement is slightly weaker than at M = 24, not
-    # better.
-    assert agg["mae_deg"] == pytest.approx(3.32, abs=0.01)
-    assert agg["rmse_deg"] == pytest.approx(3.73, abs=0.01)
-    assert agg["median_deg"] == pytest.approx(3.37, abs=0.01)
-    assert agg["max_deg"] == pytest.approx(6.85, abs=0.01)
+    # Re-locked after the anisotropy ratios moved from the adopted 2.037 and
+    # 3.763 to the measured 1.406 and 0.825, and again after the augen gneiss
+    # 30 degree trace was re-digitized, which lowered that specimen's error
+    # from 9.49 to 8.75 and the mean from 3.40 to 3.35. The framework remains
+    # marginally ahead of the loading-parallel null by less than a third of a
+    # degree, which is not a separation and which Section 4.9 states.
+    assert agg["mae_deg"] == pytest.approx(3.35, abs=0.01)
+    assert agg["rmse_deg"] == pytest.approx(4.25, abs=0.01)
+    assert agg["median_deg"] == pytest.approx(3.29, abs=0.01)
+    assert agg["max_deg"] == pytest.approx(8.75, abs=0.01)
     assert agg["n_within_5"] == 11
     assert agg["n_within_10"] == 14
 
-    # The windowed variant is kept reproducible because the manuscript reports
-    # it as a sensitivity check.
-    old = tr.aggregate_statistics(tr.compare_all(domain="central_window"))
-    assert old["mae_deg"] == pytest.approx(5.56, abs=0.01)
-    assert old["max_deg"] == pytest.approx(11.89, abs=0.01)
+    # The manuscript reports a domain-sensitivity check: the same estimator
+    # applied to both traces over their full extent instead of the common
+    # interior. It must return essentially the same answer, which is what
+    # makes the choice of window immaterial.
+    full = np.array([r["abs_axial_angular_error_full_deg"] for r in tr.compare_all()])
+    assert full.mean() == pytest.approx(3.54, abs=0.01)
+    assert full.max() == pytest.approx(12.91, abs=0.01)
+    assert abs(full.mean() - agg["mae_deg"]) < 0.25, (
+        "the full-trace and interior results have diverged; the sensitivity "
+        "check no longer supports the claim that the window does not matter")
 
 
 def test_loading_parallel_null_is_not_beaten_by_the_model():
@@ -294,7 +298,7 @@ def test_loading_parallel_null_is_not_beaten_by_the_model():
     rows = tr.compare_all()
     model = tr.aggregate_statistics(rows)
     null = tr.null_model_statistics(rows)
-    assert null["mae_deg"] == pytest.approx(3.37, abs=0.01)
+    assert null["mae_deg"] == pytest.approx(3.65, abs=0.01)
     assert model["mae_deg"] > null["mae_deg"] - 0.5, (
         f"the framework now leads the null by "
         f"{null['mae_deg'] - model['mae_deg']:.2f} deg, beyond the "
