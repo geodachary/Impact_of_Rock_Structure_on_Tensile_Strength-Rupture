@@ -171,17 +171,25 @@ def test_the_parameter_table_identifies_e2_with_the_zero_degree_specimen():
 
 
 @pytest.mark.skipif(not TEX.is_file(), reason="manuscript not present")
-def test_the_methods_prose_does_not_call_e2_laboratory_derived():
-    """Section 3.2 said the laboratory moduli initialize E1, E2 and nu12.
+def test_the_methods_prose_defines_the_moduli_as_the_code_does():
+    """Section 3.3 must describe the identification the solver performs.
 
-    E2 is derived from E1 and the ratio, not read from the table, and the
-    sentence has to keep saying so.
+    An earlier version said E1 was "the Young's modulus measured on the
+    specimen being modeled", the apparent secant modulus at that specimen's
+    own fabric angle, with E2 recomputed as E1/A_E. The solver uses one
+    material-axis pair per lithology, E1 = E(90) and E2 = E(0), so that
+    wording described an identification the code does not carry out.
     """
     t = TEX.read_text(encoding="utf-8")
-    assert "initialize $E_1$,\n$E_2$, and $\\nu_{12}$" not in t, (
-        "the stiffness paragraph claims E2 comes from the laboratory moduli "
-        "again, which contradicts Table 5")
-    assert "$A_E$ is" in t, "the definition of A_E has gone from Section 3.2"
+    for stale in ("measured on the specimen being\nmodeled",
+                  "apparent secant modulus at that specimen's own fabric",
+                  "gives $E_2 =\nE_1/A_E$"):
+        assert stale not in t, f"the superseded elastic identification is back: {stale}"
+    assert "$A_E = E_1/E_2$" in t, "the definition of A_E has gone from Section 3.3"
+    assert "$E_1 = E(90^\\circ)$ and $E_2 = E(0^\\circ)$" in t, (
+        "Section 3.3 no longer states which specimen each modulus comes from")
+    assert "One pair is used per\nlithology" in t, (
+        "Section 3.3 no longer says the constants are per lithology")
 
 
 @pytest.mark.skipif(not TEX.is_file(), reason="manuscript not present")
