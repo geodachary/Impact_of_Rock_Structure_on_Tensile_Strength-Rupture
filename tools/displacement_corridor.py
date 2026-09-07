@@ -72,10 +72,25 @@ def corridor_axis(u, v, q=CORRIDOR_PERCENTILE, frac=DISK_FRAC):
 
 
 def corridor_table(root=None) -> pd.DataFrame:
-    """Corridor axis, width and peak displacement for every specimen."""
+    """Corridor axis, width and peak displacement for every specimen.
+
+    Raises if the displacement cache is absent. That cache is written by the
+    two lithology notebooks and is deliberately not tracked, because it is
+    keyed on a hash of the specimen geometry and material and would only pin a
+    stale solve. Without the guard the loop below produces no rows and the
+    empty frame fails much later, inside ``sort_values``, with ``KeyError:
+    'rock'`` and nothing to indicate what is actually missing.
+    """
+    paths = cache_files(root)
+    if not paths:
+        raise FileNotFoundError(
+            f"no cached displacement solutions in {CACHE_DIR}. They are written "
+            "by the mid-plane displacement section of the two lithology "
+            "notebooks, so run those before scripts/reproduce_all.py on a fresh "
+            "clone: python scripts/execute_notebooks.py")
     df = load_specimen_table(root)
     rows = []
-    for path in cache_files(root):
+    for path in paths:
         sid = int(re.search(r"idx(\d+)", path).group(1))
         z = np.load(path)
         ax, width, peak = corridor_axis(z["u"], z["v"])

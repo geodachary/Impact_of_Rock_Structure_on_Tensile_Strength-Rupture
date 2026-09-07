@@ -239,6 +239,13 @@ validation tables and the four seven-panel composite figures from the cached
 field archives, and exits non-zero on any failure. A fast structural check is
 available with `--mode smoke`.
 
+On a fresh clone, run the notebooks first (Section 10). The fourteen field
+archives under `outputs/fields/fields_npz/` are tracked and carry most of what
+this script needs, but the mid-plane displacement cache it uses for the
+corridor statistics is not: it is keyed on a hash of the specimen geometry and
+material, so committing it would only pin a stale solve. The script names that
+dependency if the cache is absent.
+
 | Output | Path |
 |---|---|
 | Specimen pairing manifest | `outputs/tables/sample_pairing_manifest.csv` |
