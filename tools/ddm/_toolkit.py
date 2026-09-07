@@ -606,7 +606,15 @@ def _safe_compute_psi_pref(X, Y, M, Rt_eff, Rs_eff, sxx, syy, txy, beta_crit,
     )
 
 
-def _safe_wp_weight(X, Y, alpha_wp_line, spacing, bandwidth_frac):
+def _safe_wp_weight(X, Y, alpha_wp_line, spacing, bandwidth_frac, phase=0.0):
+    """Weak-plane weight field, tolerant of older signatures of ``fn``.
+
+    ``phase`` offsets the plane family along its normal. It defaults to zero,
+    which is the perfectly regular family this dispatcher has always produced.
+    The parameter used to be missing here while the first branch below already
+    referred to it, so the moment ``weak_plane_weight_field`` gained a ``phase``
+    argument that branch went live and raised NameError for every specimen.
+    """
     fn = bd.weak_plane_weight_field
     sig = inspect.signature(fn)
     params = list(sig.parameters.keys())

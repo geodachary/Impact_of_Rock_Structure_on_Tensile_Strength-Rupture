@@ -42,6 +42,7 @@ def latex_table(rows) -> str:
 \begin{{table}}[htbp]
 \centering
 \small
+\setlength{{\tabcolsep}}{{3.5pt}}
 \caption{{\rev{{Strength-envelope parameters. The end-member strengths
 $\sigma_0$ and $\sigma_{{90}}$ are measured, not fitted, so only the depth
 $\eta$ and the position $\beta_p$ of the weakening are estimated. Intervals are

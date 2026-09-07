@@ -9,9 +9,9 @@ from.rotation_helpers import rot_to_material, rot_to_global, vec_rot_to_material
 #: Airy series truncation used everywhere. Raised from 24 after the convergence
 #: study in ``scripts/make_mesh_sensitivity_figure.py``, which writes
 #: ``outputs/tables/convergence_series_order.csv``: at 24 the relative
-#: boundary-traction residual is 6.6e-2 and the interior field is still 29%
+#: boundary-traction residual is 6.6e-2 and the interior field is still 22%
 #: from converged over the analysis core; by 48 the residual is 6.3e-3 and the
-#: core field is within 0.5% of M = 56 and 0.6% of an M = 96 reference.
+#: core field is within 0.27% of the M = 96 reference the study writes.
 #:
 #: The fit does not become ill-conditioned beyond ~52, as this note used to
 #: claim. That was true at the old Tikhonov weight of 1e-10 and before the

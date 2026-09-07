@@ -156,6 +156,21 @@ def main():
     cor = pd.read_csv(REPO / output_dirs.TABLE_DIR / "displacement_corridor.csv")
     s = TEX.read_text(encoding="utf-8") if patch_document else ""
 
+    def _bigger(d):
+        """Name the lithology with the larger value, rather than assuming one.
+
+        This clause used to read "slightly the larger in the schist" while the
+        numbers beside it, printed gneiss first, showed the gneiss larger on
+        both the spread and the median gradient.
+        """
+        return "gneiss" if d[G] > d[P] else "schist"
+
+    def _pct_spread(*dicts):
+        """Largest relative gap across the compared pairs, as a whole per cent."""
+        import math
+        worst = max(abs(d[G] - d[P]) / min(d[G], d[P]) for d in dicts)
+        return int(math.ceil(100.0 * worst))
+
     rmax = {r: g.rotation_median_deg.max() for r, g in rot.groupby("rock")}
     hmean = {r: g.circ_sd_deg.mean() for r, g in het.groupby("rock")}
     gmed = {r: g.grad_median_deg_per_mm.mean() for r, g in grd.groupby("rock")}
@@ -232,11 +247,13 @@ def main():
         "    fabric angle: relative to the $0^\\circ$ specimen the axes rotate by a median\n"
         f"    of at most ${f(rmax[G])}^\\circ$ in the gneiss and ${f(rmax[P])}^\\circ$ in the\n"
         "    schist. Within a single specimen the spread of orientations is comparable in\n"
-        f"    the two rocks and slightly the larger in the schist (circular standard\n"
+        f"    the two rocks and marginally the larger in the {_bigger(hmean)} (circular standard\n"
         f"    deviation ${f(hmean[G],1)}^\\circ$ against ${f(hmean[P],1)}^\\circ$), as is the\n"
-        f"    sharpness of the spatial reorientation (median gradient ${f(gmed[G])}$ against\n"
-        f"    ${f(gmed[P])}$ degrees per millimeter, reaching ${f(gp90[G])}$ and\n"
-        f"    ${f(gp90[P])}$ at the ninetieth percentile). The elastic field is a\n"
+        f"    median sharpness of the spatial reorientation (${f(gmed[G])}$ against\n"
+        f"    ${f(gmed[P])}$ degrees per millimeter); at the ninetieth percentile the\n"
+        f"    order reverses, ${f(gp90[G])}$ against ${f(gp90[P])}$. Each of these\n"
+        f"    differences is within {_pct_spread(hmean, gmed, gp90)}\\% either way, so the\n"
+        "    field does not separate the two lithologies. The elastic field is a\n"
         "    homogeneous orthotropic solution, so these differences follow from the\n"
         "    contrast in elastic constants between the two rocks and not from discrete\n"
         "    stiff inclusions, which the formulation does not represent. Orientation\n"

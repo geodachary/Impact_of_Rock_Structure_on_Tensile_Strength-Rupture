@@ -70,7 +70,7 @@ def energy_localization_body() -> str:
 CAP_TRACE = r"""\caption{\rev{Predicted versus observed primary fracture-trace orientations for all fourteen specimens. Orientations are axial, measured counterclockwise from the horizontal diameter ($+x$); the loading diameter lies at $90^\circ$. Both the digitized and the predicted trace are read over the same interior, $r \le 0.85R$, the domain over which every field diagnostic here is taken, and the primary fracture is identified from the complete digitized trace before clipping. $\sigma_{\mathrm{fit}}$ is the bootstrap standard deviation of the total-least-squares orientation fit (digitization and fit scatter; one specimen was tested per fabric angle, so no replicate scatter is measurable). $n_{\mathrm{seg}}$ is the number of connected cracks digitized on that specimen and $|\Delta\theta|$ is the axial error against the longest of them. Summary statistics are quoted in the main text.}}"""
 
 CAP_ENERGY = r"""\caption{\rev{Connectivity and shape of the elevated strain-energy region, defined as the
-upper quartile of strain-energy density inside $0.85R$. Components are labelled with
+upper quartile of strain-energy density inside $0.85R$. Components are labeled with
 eight-fold connectivity; the largest fraction is the share of the elevated area in the
 biggest component, and elongation is the square root of the ratio of its second moments,
 unity for an equant patch. A corridor is recorded when the region forms a single component
