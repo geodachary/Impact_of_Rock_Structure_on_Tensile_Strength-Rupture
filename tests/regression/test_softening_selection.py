@@ -22,6 +22,14 @@ from tools import softening_selection as ss
 REPO = Path(__file__).resolve().parents[2]
 TEX = REPO / "manuscript/manscript_revision_001.tex"
 
+#: The manuscript source is not part of the software release, so tests that
+#: read it skip on a clean clone rather than failing there.
+needs_manuscript = pytest.mark.skipif(
+    not TEX.is_file(), reason="manuscript source not shipped with the release")
+
+pytestmark = needs_manuscript
+
+
 # Re-locked after the stress-sign correction (2026-08-29). The classifier had
 # been fed a sign-flipped field, which inflated the mixed-mode fraction the
 # sweep maximises; with the convention declared the curves are flatter and the

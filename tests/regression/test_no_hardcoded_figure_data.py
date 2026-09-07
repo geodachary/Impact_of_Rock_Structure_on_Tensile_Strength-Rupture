@@ -24,6 +24,14 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 TEX = REPO / "manuscript/manscript_revision_001.tex"
 
+#: The manuscript source is not part of the software release, so tests that
+#: read it skip on a clean clone rather than failing there.
+needs_manuscript = pytest.mark.skipif(
+    not TEX.is_file(), reason="manuscript source not shipped with the release")
+
+pytestmark = needs_manuscript
+
+
 #: Lists of chosen inputs, not measurements.
 #: Chosen inputs and plotting parameters, not measurements: swept values,
 #: axis ticks and histogram bin edges.
