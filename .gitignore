@@ -115,4 +115,6 @@ revision_log.csv
 *.xlsm
 *.xlsb
 !rock_strength_metrics.xlsx
-
+!selected_all_samples.xlsx
+!tensile_samples_data.xlsx
+!data_mean.ipynb
