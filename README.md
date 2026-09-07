@@ -10,6 +10,8 @@ Submitted to the *Journal of the Mechanics and Physics of Solids*
 > of the results reported in the associated publication. It reflects a research
 > workflow and is not distributed as a general-purpose software package.
 
+**Archived release:** [10.5281/zenodo.22591642](https://doi.org/10.5281/zenodo.22591642)
+
 ---
 
 ## 1. Overview
@@ -356,14 +358,31 @@ See `LICENSE`. Machine-readable citation metadata is in `CITATION.cff`, which
 GitHub and Zenodo both read; "Cite this repository" on the GitHub sidebar
 renders it as BibTeX or APA.
 
-Three fields are deliberately absent because they do not exist yet, and an
+To cite the software, use the archived release:
+
+> Acharya, D., & Elsworth, D. (2026). *Impact of Rock Anisotropy on Tensile
+> Strength and Modes of Rupture* (Version v1.0.0) [Computer software]. Zenodo.
+> https://doi.org/10.5281/zenodo.22591642
+
+```bibtex
+@misc{Acharya2026ImpactSoftware,
+    title     = {{Impact of Rock Anisotropy on Tensile Strength and Modes of Rupture}},
+    author    = {Acharya, Durga and Elsworth, Derek},
+    year      = {2026},
+    version   = {v1.0.0},
+    howpublished = {[Software]},
+    publisher = {Zenodo},
+    doi       = {10.5281/zenodo.22591642}
+}
+```
+
+Two fields remain deliberately absent because they do not exist yet, and an
 invented one is worse than a missing one:
 
 | Field | Add when |
 | --- | --- |
-| `doi:` and `identifiers:` | a Zenodo release is minted |
 | `orcid:` under each author | you want authors disambiguated |
-| `date-released:` | version 1.0.0 is tagged |
+| `date-released:` | the v1.0.0 tag carries a release date |
 
 The `preferred-citation` block carries the manuscript as `status: submitted`.
 On acceptance, change that to the journal, volume, pages and year, and add the
