@@ -19,6 +19,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from tools import energy_localization as elz   # noqa: E402
+from tools import output_dirs  # noqa: E402
 from tools import traces as tr                 # noqa: E402
 
 TABLE_DIR = REPO / "manuscript" / "tables"
@@ -111,6 +112,10 @@ def energy_localization_table() -> str:
 
 
 def main() -> int:
+    # a clean checkout carries no manuscript directory, so create the
+    # output paths before writing into them
+    output_dirs.ensure(output_dirs.DOC_DIR, output_dirs.DOC_TABLE_DIR,
+                       output_dirs.FIGURE_DIR, output_dirs.TABLE_DIR)
     TABLE_DIR.mkdir(parents=True, exist_ok=True)
     for name, body in (
             ("table_S_trace_validation", trace_validation_table()),

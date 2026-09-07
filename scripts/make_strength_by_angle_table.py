@@ -74,6 +74,10 @@ $\mathrm{{CV}}$ (\%) \\
 
 
 def main() -> int:
+    # a clean checkout carries no manuscript directory, so create the
+    # output paths before writing into them
+    output_dirs.ensure(output_dirs.DOC_DIR, output_dirs.DOC_TABLE_DIR,
+                       output_dirs.FIGURE_DIR, output_dirs.TABLE_DIR)
     t = statistics()
     output_dirs.tables()
     out_csv = Path(output_dirs.tables()) / "strength_by_angle.csv"

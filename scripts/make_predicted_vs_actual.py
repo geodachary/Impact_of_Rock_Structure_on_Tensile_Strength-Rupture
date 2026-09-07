@@ -31,6 +31,10 @@ STYLE = {"Augen gneiss": dict(color="#4C72B0", marker="o"),
 
 
 def main():
+    # a clean checkout carries no manuscript directory, so create the
+    # output paths before writing into them
+    output_dirs.ensure(output_dirs.DOC_DIR, output_dirs.DOC_TABLE_DIR,
+                       output_dirs.FIGURE_DIR, output_dirs.TABLE_DIR)
     output_dirs.ensure()
     apply_plot_style()
     d = load_replicate_table()

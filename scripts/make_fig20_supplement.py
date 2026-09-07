@@ -203,6 +203,10 @@ def make_figure(df, band, out):
 
 
 def main():
+    # a clean checkout carries no manuscript directory, so create the
+    # output paths before writing into them
+    output_dirs.ensure(output_dirs.DOC_DIR, output_dirs.DOC_TABLE_DIR,
+                       output_dirs.FIGURE_DIR, output_dirs.TABLE_DIR)
     df = fe.all_profiles()
     band = fe.band_summary(df)
     v = fe.verdict(df)

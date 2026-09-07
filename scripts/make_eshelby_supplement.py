@@ -51,6 +51,10 @@ def remote_stress_from_field():
 
 
 def main():
+    # a clean checkout carries no manuscript directory, so create the
+    # output paths before writing into them
+    output_dirs.ensure(output_dirs.DOC_DIR, output_dirs.DOC_TABLE_DIR,
+                       output_dirs.FIGURE_DIR, output_dirs.TABLE_DIR)
     apply_plot_style()
     s_inf = remote_stress_from_field()
     Em = E_MATRIX_GPA * 1e3

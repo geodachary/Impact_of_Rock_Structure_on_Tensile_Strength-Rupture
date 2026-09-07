@@ -77,6 +77,10 @@ FIGSIZE = (3.15, 6.4)
 
 
 def main():
+    # a clean checkout carries no manuscript directory, so create the
+    # output paths before writing into them
+    output_dirs.ensure(output_dirs.DOC_DIR, output_dirs.DOC_TABLE_DIR,
+                       output_dirs.FIGURE_DIR, output_dirs.TABLE_DIR)
     output_dirs.ensure()
     apply_plot_style()
     fields = {}

@@ -194,6 +194,10 @@ def grid_convergence(df) -> pd.DataFrame:
 
 
 def main():
+    # a clean checkout carries no manuscript directory, so create the
+    # output paths before writing into them
+    output_dirs.ensure(output_dirs.DOC_DIR, output_dirs.DOC_TABLE_DIR,
+                       output_dirs.FIGURE_DIR, output_dirs.TABLE_DIR)
     apply_plot_style()
     df = load_specimen_table()
     print("  boundary-collocation convergence (14 specimens x 4 levels):")
