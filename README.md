@@ -429,7 +429,7 @@ To cite the software, use the archived release:
     author    = {Acharya, Durga and Elsworth, Derek},
     year      = {2026},
     version   = {v1.0.0},
-    howpublished = {[Software]},
+    howpublished = {Version v1.0.0 [Software]},
     publisher = {Zenodo},
     doi       = {10.5281/zenodo.22644606}
 }
