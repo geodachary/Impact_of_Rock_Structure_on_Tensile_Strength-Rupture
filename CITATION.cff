@@ -1,11 +1,8 @@
 cff-version: 1.2.0
 message: >-
-  If you use this software or the data it contains, please cite it using the
-  metadata below. Once the associated manuscript is accepted, cite the paper
-  instead and add its DOI here.
-title: >-
-  Impact of rock anisotropy on tensile strength and modes of rupture:
-  analysis code and data
+  If you use this software, please cite it as below. Once the associated
+  manuscript is accepted, cite the paper instead and add its DOI here.
+title: Impact of Rock Anisotropy on Tensile Strength and Modes of Rupture
 abstract: >-
   Orthotropic stress analysis and four-mechanism failure classification for
   Brazilian tensile tests on foliated rocks. The workflow solves the
@@ -18,6 +15,7 @@ abstract: >-
   raw measurements.
 type: software
 version: v1.0.0
+date-released: 2026-09-07
 license: MIT
 doi: 10.5281/zenodo.22591642
 identifiers:

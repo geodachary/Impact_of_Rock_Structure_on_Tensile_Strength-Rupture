@@ -352,7 +352,65 @@ composite figures **without** the multi-hour notebook run.
 export; the older `.xls` it superseded has been removed. No data file is
 excluded.
 
-## 15. License and citation
+## 15. Methods implemented, and the work they come from
+
+The code is an implementation of published methods, not of new ones. Anyone
+citing this software should cite the sources of the methods it uses as well.
+They are listed here by what the code actually does with them; the manuscript's
+bibliography carries the full list, including work that is discussed but not
+implemented.
+
+**Stress field**
+
+| Used for | Reference |
+| --- | --- |
+| Orthotropic Airy-series stress function; the complex parameters and the series the solver fits | Lekhnitskii, S.G., Fern, P., Brandstatter, J.J., & Dill, E.H. (1964). *Theory of elasticity of an anisotropic elastic body.* American Institute of Physics. |
+| Brazilian stress field and tensile strength for anisotropic discs | Claesson, J., & Bohloli, B. (2002). *Brazilian test: stress field and tensile strength of anisotropic rocks using an analytical solution.* International Journal of Rock Mechanics and Mining Sciences, 39(8), 991-1004. |
+| Isotropic Brazilian solution, used as the limiting check on the solver | Hondros, G. (1959). *The evaluation of Poisson's ratio and the modulus of materials of a low tensile resistance by the Brazilian (indirect tensile) test with particular reference to concrete.* Aust. J. Appl. Sci., 243-264. |
+| Saint-Venant decay, which justifies reporting on the 0.85R interior | Toupin, R.A. (1965). *Saint-Venant's principle.* Archive for Rational Mechanics and Analysis, 18(2), 83-96. |
+| End-zone lengths in anisotropic solids, which is why interior convergence is measured rather than inferred | Horgan, C.O., & Simmonds, J.G. (1994). *Saint-Venant end effects in composite structures.* Composites Engineering, 4(3), 279-286. |
+
+**Elastic constants and homogenization**
+
+| Used for | Reference |
+| --- | --- |
+| Rotation of the plane-stress stiffness into the fabric frame (the `qbar_from_Es` transformation) | *Laminated composite plates.* (2000). Massachusetts Institute of Technology Cambridge. |
+| Single-inclusion stress concentration, used to bound the neglected grain-scale fluctuation | Eshelby, J.D. (1957). *The determination of the elastic field of an ellipsoidal inclusion, and related problems.* Proceedings of the Royal Society of London. Series A, Mathematical and Physical Sciences, 241(1226), 376-396. |
+| Effective-medium stiffening bound for the two-phase aggregate | Mori, T., & Tanaka, K. (1973). *Average stress in matrix and average elastic energy of materials with misfitting inclusions.* Acta Metallurgica, 21(5), 571-574. |
+| Modulus-anisotropy ratio as a descriptor for transversely isotropic geomaterials | Ip, S.C.Y., Choo, J., & Borja, R.I. (2021). *Impacts of saturation-dependent anisotropy on the shrinkage behavior of clay rocks.* Acta Geotechnica, 16(11), 3381-3400. |
+
+**Fracture and crack path**
+
+| Used for | Reference |
+| --- | --- |
+| Anisotropic elasticity formalism underlying the crack-tip fields | Stroh, A.N. (1958). *Dislocations and Cracks in Anisotropic Elasticity.* Philosophical Magazine, 3(30), 625-646. |
+| Barnett-Lothe energy matrix **H**, which converts the stress-intensity pair into an energy release rate | Barnett, D.M., Lothe, J., Nishioka, K., & Asaro, R.J. (1973). *Elastic surface waves in anisotropic crystals: a simplified method for calculating Rayleigh velocities using dislocation theory.* Journal of Physics F: Metal Physics, 3(6), 1083. |
+| Cracks in rectilinearly anisotropic bodies | Sih, G.C., Paris, P.C., & Irwin, G.R. (1965). *On cracks in rectilinearly anisotropic bodies.* International Journal of Fracture Mechanics, 1(3), 189-203. |
+| Mixed-mode extension direction | Erdogan, F., & Sih, S.C. (1963). *On the crack extension in paltes under plane loading and transverse shear.* J Basic Eng ASME, 85. |
+| Energy criterion the stepper applies | Griffith, A.A. (1921). *VI. The phenomena of rupture and flow in solids.* Philosophical Transactions of the Royal Society of London, Series A: Containing Papers of a Mathematical or Physical Character, 221(582-593), 163-198. |
+| Mixed-mode cracking where a compliant layer is present | Hutchinson, J.W., & Suo, Z. (1991). *Mixed Mode Cracking in Layered Materials.* Advances in Applied Mechanics, 29(C), 63-191. |
+| Fracture analysis of cracked anisotropic discs | Chen, C., Pan, E., & Amadei, B. (1998). *Fracture mechanics analysis of cracked discs of anisotropic rock using the boundary element method.* International Journal of Rock Mechanics and Mining Sciences, 35(2), 195-218. |
+
+**Failure criteria and regimes**
+
+| Used for | Reference |
+| --- | --- |
+| Shear failure on a weak plane, the form the weak-plane criterion takes | Jaeger, J.C. (1960). *Shear Failure of Anistropic Rocks.* Geological Magazine, 97(1), 65-72. |
+| Naming convention for the three principal-stress permutations | *The dynamics of faulting and dyke formation with applications to Britain.* (1951). |
+
+**Measurement standards and tools**
+
+| Used for | Reference |
+| --- | --- |
+| Brazilian tensile test procedure the input data follow | ISRM (1977). *Suggested methods for determining tensile strength of rock materials.* International Journal of Rock Mechanics and Mining Sciences and Geomechanics Abstracts, 15, 99-103. |
+| Uniaxial compressive strength and deformability | *Suggested methods for determining the uniaxial compressive strength and deformability of rock materials: Part 1. Suggested method for determining deformability of rock materials in uniaxial compression.* (1979). International Journal of Rock Mechanics and Mining Sciences & Geomechanics Abstracts, 16(2), 138-140. |
+| Triaxial testing, source of the cohesion and friction angle | *Suggested methods for determining the strength of rock materials in triaxial compression.* (1978). International Journal of Rock Mechanics and Mining Sciences & Geomechanics Abstracts, 15(2), 47-51. |
+| Digitizing fracture traces and foliation scanlines | Schneider, C.A., Rasband, W.S., & Eliceiri, K.W. (2012). *NIH Image to ImageJ: 25 years of image analysis.* Nature Methods 2012 9:7, 9(7), 671-675. |
+
+BibTeX entries for all of these, and for this software, are in
+`REFERENCES.bib` in the repository root.
+
+## 16. License and citation
 
 See `LICENSE`. Machine-readable citation metadata is in `CITATION.cff`, which
 GitHub and Zenodo both read; "Cite this repository" on the GitHub sidebar
@@ -376,13 +434,9 @@ To cite the software, use the archived release:
 }
 ```
 
-Two fields remain deliberately absent because they do not exist yet, and an
-invented one is worse than a missing one:
-
-| Field | Add when |
-| --- | --- |
-| `orcid:` under each author | you want authors disambiguated |
-| `date-released:` | the v1.0.0 tag carries a release date |
+One field remains deliberately absent, because an invented one is worse than a
+missing one: `orcid:` under each author. Add it when you want the authors
+disambiguated; it needs the real identifiers, not a placeholder.
 
 The `preferred-citation` block carries the manuscript as `status: submitted`.
 On acceptance, change that to the journal, volume, pages and year, and add the
