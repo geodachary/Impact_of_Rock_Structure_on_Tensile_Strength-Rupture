@@ -10,7 +10,7 @@ Submitted to the *Journal of the Mechanics and Physics of Solids*
 > of the results reported in the associated publication. It reflects a research
 > workflow and is not distributed as a general-purpose software package.
 
-**Archived release:** [10.5281/zenodo.22644302](https://doi.org/10.5281/zenodo.22644302) (concept DOI [10.5281/zenodo.22591641](https://doi.org/10.5281/zenodo.22591641) always resolves to the latest version)
+**Archived release:** [10.5281/zenodo.22644606](https://doi.org/10.5281/zenodo.22644606) (concept DOI [10.5281/zenodo.22591641](https://doi.org/10.5281/zenodo.22591641) always resolves to the latest version)
 
 ---
 
@@ -136,9 +136,10 @@ Tensile_general_plots.ipynb       cross-lithology models and comparisons
 
 crack_digitized_data/      raw: digitized laboratory fracture traces
 tensile_samples_data.csv   raw: Brazilian-test strengths, cohesion, friction angle
-selected_all_samples.*     raw: the replicate measurements, spreadsheet and CSV
-data_mean.ipynb            averages the replicates into tensile_samples_data.xlsx,
-                           from which the .csv above is exported
+selected_all_samples.csv   raw: the replicate measurements
+data_mean.ipynb            averages the replicates into the specimen table; the
+                           working spreadsheets it uses are not published, and
+                           the CSV exports above are the published form
 
 outputs/                   everything generated, sorted by what it is
   figures/                 every figure, in every format it is saved in
@@ -348,9 +349,9 @@ The cached field archives are included on purpose: they are what allow
 `scripts/reproduce_all.py` to regenerate the validation tables and all four
 composite figures **without** the multi-hour notebook run.
 
-`selected_all_samples.xlsx` is retained as the spreadsheet alongside its CSV
-export; the older `.xls` it superseded has been removed. No data file is
-excluded.
+The working `.xlsx` spreadsheets behind these tables are not published. The
+CSV exports listed above are the published form and are what the pipeline
+reads; no measurement is withheld by leaving the spreadsheets out.
 
 ## 15. Methods implemented, and the work they come from
 
@@ -419,18 +420,18 @@ renders it as BibTeX or APA.
 To cite the software, use the archived release:
 
 > Acharya, D., & Elsworth, D. (2026). *Impact of Rock Anisotropy on Tensile
-> Strength and Modes of Rupture* (Version v1.0.1) [Computer software]. Zenodo.
-> https://doi.org/10.5281/zenodo.22644302
+> Strength and Modes of Rupture* (Version v1.0.0) [Computer software]. Zenodo.
+> https://doi.org/10.5281/zenodo.22644606
 
 ```bibtex
 @misc{Acharya2026ImpactSoftware,
     title     = {{Impact of Rock Anisotropy on Tensile Strength and Modes of Rupture}},
     author    = {Acharya, Durga and Elsworth, Derek},
     year      = {2026},
-    version   = {v1.0.1},
+    version   = {v1.0.0},
     howpublished = {[Software]},
     publisher = {Zenodo},
-    doi       = {10.5281/zenodo.22644302}
+    doi       = {10.5281/zenodo.22644606}
 }
 ```
 

@@ -11,10 +11,10 @@ This release contains the analysis code, the raw measurements and the cached
 field archives that reproduce every table and figure of the associated
 manuscript from the laboratory data.
 
-It supersedes v1.0.0. That release was cut from an earlier tag and archived a
-snapshot that contained the data and figures but none of the analysis code:
-no tools package, no reproduction scripts and no test suite. It cannot
-reproduce the reported results. Use this version instead.
+This is the archive of record for the associated manuscript. An earlier
+deposit under the same concept record was cut from a superseded tag and
+contained the data and figures but none of the analysis code; it cannot
+reproduce the reported results and should not be used.
 
 
 WHAT IS INCLUDED
@@ -70,10 +70,10 @@ Figures are byte-reproducible: SOURCE_DATE_EPOCH is pinned, so regenerating an
 unchanged figure returns an identical file.
 
 
-CHANGES SINCE v1.0.0
---------------------
+WHAT THIS ARCHIVE PROVIDES
+--------------------------
 
-  - adds the entire analysis layer, which the previous archive omitted
+  - the complete analysis layer, absent from the superseded deposit
   - elastic constants identified in the foliation frame: one material-axis set
     per lithology, with the in-plane shear modulus identified from the measured
     off-axis directional stiffness rather than read from an on-axis test
@@ -90,8 +90,8 @@ CITATION
 --------
 
 Acharya, D., & Elsworth, D. (2026). Impact of Rock Anisotropy on Tensile
-Strength and Modes of Rupture (Version v1.0.1) [Computer software]. Zenodo.
-https://doi.org/10.5281/zenodo.22644302
+Strength and Modes of Rupture (Version v1.0.0) [Computer software]. Zenodo.
+https://doi.org/10.5281/zenodo.22644606
 
 Machine-readable metadata is in CITATION.cff. The methods this code
 implements, and the published work each comes from, are listed in README

@@ -71,10 +71,10 @@ Tensile_*.pdf
 #                                        reproducible without the multi-hour
 #                                        notebook run
 #   outputs/fields/smoke_*.csv           step-wise crack diagnostics
-#   selected_all_samples.xlsx            the spreadsheet, alongside its CSV
-#                                        export; the older .xls was superseded
-#                                        by it and removed
-# No data file is excluded.
+#   (the .xlsx working spreadsheets are not published; the CSV exports above
+#    are what the pipeline reads and are the published form)
+# Every measurement is published in CSV form; only the working .xlsx
+# spreadsheets behind them are withheld.
 
 # Executed notebook copies are large (33 MB) and regenerable
 outputs/tables/executed_notebooks/
@@ -104,16 +104,15 @@ manuscript/
 revision_log.csv
 
 
-# Ignore Excel files, except the three workbooks the DATA POLICY above ships.
-# Without these negations the rule contradicts that policy: the workbooks are
-# already tracked, so git honours them today, but a regenerated copy would go
-# silently unstaged. tensile_samples_data.xlsx in particular is read by
-# tests/regression/test_input_table_has_one_source.py.
+# Excel files are not published. The two specimen workbooks are working
+# documents: the replicate spreadsheet and the averaged table that
+# data_mean.ipynb writes. Both are superseded for any downstream use by the
+# CSV exports, which are tracked and are what the pipeline actually reads.
+# rock_strength_metrics.xlsx is written by the metric export and is kept,
+# because it is an output of the workflow rather than an input to it.
 *.xlsx
 *.xls
 *.xlsm
 *.xlsb
-!selected_all_samples.xlsx
-!tensile_samples_data.xlsx
 !rock_strength_metrics.xlsx
 

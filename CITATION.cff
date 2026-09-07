@@ -14,13 +14,13 @@ abstract: >-
   and reproduces every table and figure of the associated manuscript from the
   raw measurements.
 type: software
-version: v1.0.1
+version: v1.0.0
 date-released: 2026-09-07
 license: MIT
-doi: 10.5281/zenodo.22644302
+doi: 10.5281/zenodo.22644606
 identifiers:
   - type: doi
-    value: 10.5281/zenodo.22644302
+    value: 10.5281/zenodo.22644606
     description: Archived release of the analysis code and data
   - type: doi
     value: 10.5281/zenodo.22591641
