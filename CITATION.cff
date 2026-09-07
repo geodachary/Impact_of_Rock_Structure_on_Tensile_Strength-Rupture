@@ -14,14 +14,17 @@ abstract: >-
   and reproduces every table and figure of the associated manuscript from the
   raw measurements.
 type: software
-version: v1.0.0
+version: v1.0.1
 date-released: 2026-09-07
 license: MIT
-doi: 10.5281/zenodo.22591642
+doi: 10.5281/zenodo.22644302
 identifiers:
   - type: doi
-    value: 10.5281/zenodo.22591642
+    value: 10.5281/zenodo.22644302
     description: Archived release of the analysis code and data
+  - type: doi
+    value: 10.5281/zenodo.22591641
+    description: Concept DOI, always resolving to the latest version
 repository-code: >-
   https://github.com/geodachary/Impact_of_Rock_Structure_on_Tensile_Strength-Rupture
 authors:

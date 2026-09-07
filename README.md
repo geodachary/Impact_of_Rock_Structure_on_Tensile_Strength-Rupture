@@ -10,7 +10,7 @@ Submitted to the *Journal of the Mechanics and Physics of Solids*
 > of the results reported in the associated publication. It reflects a research
 > workflow and is not distributed as a general-purpose software package.
 
-**Archived release:** [10.5281/zenodo.22591642](https://doi.org/10.5281/zenodo.22591642)
+**Archived release:** [10.5281/zenodo.22644302](https://doi.org/10.5281/zenodo.22644302) (concept DOI [10.5281/zenodo.22591641](https://doi.org/10.5281/zenodo.22591641) always resolves to the latest version)
 
 ---
 
@@ -419,18 +419,18 @@ renders it as BibTeX or APA.
 To cite the software, use the archived release:
 
 > Acharya, D., & Elsworth, D. (2026). *Impact of Rock Anisotropy on Tensile
-> Strength and Modes of Rupture* (Version v1.0.0) [Computer software]. Zenodo.
-> https://doi.org/10.5281/zenodo.22591642
+> Strength and Modes of Rupture* (Version v1.0.1) [Computer software]. Zenodo.
+> https://doi.org/10.5281/zenodo.22644302
 
 ```bibtex
 @misc{Acharya2026ImpactSoftware,
     title     = {{Impact of Rock Anisotropy on Tensile Strength and Modes of Rupture}},
     author    = {Acharya, Durga and Elsworth, Derek},
     year      = {2026},
-    version   = {v1.0.0},
+    version   = {v1.0.1},
     howpublished = {[Software]},
     publisher = {Zenodo},
-    doi       = {10.5281/zenodo.22591642}
+    doi       = {10.5281/zenodo.22644302}
 }
 ```
 

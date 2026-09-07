@@ -59,7 +59,9 @@ def test_every_method_reference_is_in_the_bib():
 def test_the_software_cites_itself_with_the_zenodo_doi():
     e = _entries()
     b = e["Acharya2026ImpactSoftware"]
-    assert _field(b, "doi") == "10.5281/zenodo.22591642"
+    assert _field(b, "doi") == "10.5281/zenodo.22644302", (
+        "the software entry no longer carries the v1.0.1 archive DOI; v1.0.0 "
+        "archived a snapshot with no analysis code and must not be cited")
     assert "Software" in _field(b, "howpublished")
 
 
